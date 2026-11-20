@@ -100,4 +100,14 @@ The Miniloan sample is from [DecisionsDev/odm-on-cloud-getting-started](https://
 
 This is the first decision-service slice: parse, index, ground, impact, drift, SQLite snapshots, and a workbench. It is not yet a hosted multi-tenant system. There is no separate vector database, no Rule Model API / DAIF ingest, and no Copilot or watsonx plugin. Those sit on top of this store once one decision service is trusted.
 
-See [docs/DESIGN.md](docs/DESIGN.md) for the target design and [docs/HOW-IT-WAS-BUILT.md](docs/HOW-IT-WAS-BUILT.md) for how this repo was produced.
+## Production service
+
+The workbench is the reference client. The production surface is the API in [docs/API.md](docs/API.md).
+
+```bash
+npm run reindex -- path/to/project rulebase.sqlite
+export RULEBASE_API_KEY=$(openssl rand -hex 24)
+npm start
+```
+
+`npm start` serves the tools on port 8787, including an MCP endpoint at `/mcp` for a Copilot, Claude, or watsonx host. Accepted feedback is written to the SQLite file and survives a restart.

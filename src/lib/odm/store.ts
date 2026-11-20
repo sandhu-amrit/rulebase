@@ -64,6 +64,23 @@ CREATE TABLE IF NOT EXISTS meta (
 CREATE INDEX IF NOT EXISTS artifacts_type ON artifacts(snapshot_id, type);
 CREATE INDEX IF NOT EXISTS artifacts_package ON artifacts(snapshot_id, package);
 CREATE INDEX IF NOT EXISTS edges_from ON edges(snapshot_id, from_id);
+CREATE TABLE IF NOT EXISTS learned_glossary (
+  project_name TEXT NOT NULL,
+  phrase TEXT NOT NULL,
+  maps_to TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'session',
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (project_name, phrase)
+);
+CREATE TABLE IF NOT EXISTS feedback_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_name TEXT NOT NULL,
+  requirement TEXT NOT NULL,
+  accepted INTEGER NOT NULL,
+  unknown TEXT NOT NULL,
+  mapped TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
 `;
 
 export interface StoredSnapshot {
@@ -164,6 +181,54 @@ export class RuleStore {
   latestId(): number | null {
     const row = this.db.prepare(`SELECT id FROM snapshots ORDER BY id DESC LIMIT 1`).get() as { id: number } | undefined;
     return row?.id ?? null;
+  }
+
+  projects(): StoredSnapshot[] {
+    return this.db
+      .prepare(
+        `SELECT id, saved_at, label, commit_ref, project_name, decision_service, artifact_count, term_count
+         FROM snapshots
+         WHERE id IN (SELECT MAX(id) FROM snapshots GROUP BY project_name)
+         ORDER BY project_name`,
+      )
+      .all()
+      .map(rowToSnapshot);
+  }
+
+  learnedGlossary(projectName: string): GlossaryEntry[] {
+    return this.db
+      .prepare(`SELECT phrase, maps_to, source FROM learned_glossary WHERE project_name = ? ORDER BY phrase`)
+      .all(projectName)
+      .map((row) => {
+        const entry = row as { phrase: string; maps_to: string; source: GlossaryEntry["source"] };
+        return { phrase: entry.phrase, mapsTo: JSON.parse(entry.maps_to) as string[], source: entry.source };
+      });
+  }
+
+  remember(projectName: string, phrase: string, mapsTo: string[]): void {
+    this.db
+      .prepare(
+        `INSERT INTO learned_glossary (project_name, phrase, maps_to, source, created_at)
+         VALUES (?, ?, ?, 'session', ?)
+         ON CONFLICT(project_name, phrase) DO UPDATE SET maps_to = excluded.maps_to, created_at = excluded.created_at`,
+      )
+      .run(projectName, phrase, JSON.stringify(mapsTo), new Date().toISOString());
+  }
+
+  logFeedback(projectName: string, record: FeedbackRecord): void {
+    this.db
+      .prepare(
+        `INSERT INTO feedback_log (project_name, requirement, accepted, unknown, mapped, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        projectName,
+        record.requirement,
+        record.accepted ? 1 : 0,
+        JSON.stringify(record.unknown),
+        JSON.stringify(record.mapped),
+        record.at,
+      );
   }
 
   load(snapshotId?: number): KnowledgeSnapshot | null {
