@@ -99,9 +99,87 @@ docs/                 design and build notes
 
 The Miniloan sample is from [DecisionsDev/odm-on-cloud-getting-started](https://github.com/DecisionsDev/odm-on-cloud-getting-started) and is Apache-2.0. The license text ships at `src/fixtures/miniloan/APACHE-LICENSE.txt`.
 
+## Which input
+
+Either. You do not need both. They land in the same index.
+
+| You have | Index this |
+|---|---|
+| An existing ODM project in Rule Designer or Git | The folder (`.ruleproject`, `rules/`, `bom/`) |
+| A DAIF `DecisionService` JSON from a tool or an export | The `.json` |
+| Both | The folder. It is the project. DAIF is a copy. |
+
+For an existing rule app, the Rule Designer folder is the source of truth. DAIF is an extra door, not a conversion you have to do first.
+
+## Workflow
+
+You have this repo and a rule app in a workspace. Next is to index that app, then use the index when a requirement comes in.
+
+1. Index the rule app.
+
+```bash
+npm install
+npm run reindex -- /path/to/your-rule-app rulebase.sqlite
+```
+
+The output ends with the quality gates. You want all of them `PASS`. A selection or signature failure means the folder is incomplete, or the ruleflow names a package that is not in the project.
+
+2. Look at it.
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:8080`, then **Open project folder** and pick the same rule app. Impact should only include what the ruleflow actually selects.
+
+3. Run it as the service an agent calls.
+
+```bash
+export RULEBASE_API_KEY=$(openssl rand -hex 24)
+export RULEBASE_DB=rulebase.sqlite
+npm start
+```
+
+That is the production surface, on port 8787.
+
+4. A requirement comes in.
+
+1. `map_requirement` grounds the words onto the BOM. If a word is not in the vocabulary, the proposal is rejected.
+2. `search_rules` and `get_ruleflow_impact` show which rules, package, and operation the change touches.
+3. A person reviews the draft. Accept writes the mapping into the glossary.
+4. The person edits the rule in Rule Designer or Decision Center and commits. Rulebase does not write the rule.
+5. Reindex again. Drift tells you what changed.
+
+## Architecture
+
+Two inputs, one index, three ways to ask it.
+
+```text
+Rule Designer folder ── parse.ts ──┐
+                                   ├── kb.ts (search, graph, grounding, impact) ── rulebase.sqlite
+DAIF JSON ──────────── daif.ts ────┘                                                    │
+                                                                                        ▼
+                              Workbench          CLI reindex          HTTP API :8787
+                              (browser)          (snapshot+drift)     /v1/.../tools/...
+                                                                      /mcp  (MCP-shaped)
+```
+
+| Piece | What it is |
+|---|---|
+| Ingest | `parse.ts` reads Rule Designer XML. `daif.ts` reads a DAIF document. Same artifacts, terms, and selection either way. |
+| Index | `kb.ts`. BM25 plus a hashed vector, the relationship graph, grounding, impact, quality gates. |
+| Store | One SQLite file. Snapshots, learned glossary, feedback, drift. |
+| Workbench | Reference client. Sample or an uploaded folder, in memory. |
+| API | The service. API key, multi-project, the tools. |
+| `/mcp` | MCP-shaped JSON-RPC on that API. Not a host-ready MCP server. |
+
+A requirement goes `map_requirement` → `search_rules` → `get_ruleflow_impact`. Unknown vocabulary rejects. A person accepts, edits the rule in ODM, and reindexes.
+
 ## Status
 
-This is the first decision-service slice: parse, index, ground, impact, drift, SQLite snapshots, and a workbench. It is not yet a hosted multi-tenant system. There is no separate vector database, no Rule Model API / DAIF ingest, and no Copilot or watsonx plugin. Those sit on top of this store once one decision service is trusted.
+Built: parse (Rule Designer and DAIF), index, grounding, impact, drift, SQLite snapshots, workbench, authenticated HTTP API, and an MCP-shaped `/mcp` endpoint.
+
+Not built: a host-ready MCP server (no stdio, no Streamable HTTP session), a Copilot or watsonx plugin, a hosted vector database, and writing the change back into the rule project.
 
 ## Production service
 
@@ -113,4 +191,4 @@ export RULEBASE_API_KEY=$(openssl rand -hex 24)
 npm start
 ```
 
-`npm start` serves the tools on port 8787, including an MCP endpoint at `/mcp` for a Copilot, Claude, or watsonx host. Accepted feedback is written to the SQLite file and survives a restart.
+`npm start` serves the tools on port 8787. `/mcp` answers `initialize`, `tools/list`, and `tools/call`. That is enough for a client you write. It is not the MCP protocol a Copilot or Claude host expects: there is no stdio transport, no Streamable HTTP session, and every call needs a `project` argument. Accepted feedback is written to the SQLite file and survives a restart.
