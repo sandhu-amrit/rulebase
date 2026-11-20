@@ -56,12 +56,20 @@ A draft is a skeleton in the project's own phrases. It is not applied. A person 
 
 ## What is deliberately later
 
-- Rule Model API or Decision Automation Interchange Format as the preferred ingest, instead of Rule Designer XML.
 - Shared BOM across several decision services as a first-class project graph (the `SHARES_BOM` edge is reserved for it).
 - Override and test-coverage edges populated from real priority and test artifacts (the edge types exist; Miniloan does not exercise them).
 - A host plugin for Copilot, Claude, or watsonx. The tool names are the contract. The workbench is the reference client.
 - Automatic reindex on push, beyond the GitHub Action that runs the pipeline test and a sample reindex.
 
-## Sample
+## Ingest
 
-The proving project is Miniloan: three action rules, one 7-row decision table, one ruleflow selecting `eligibility` and `validation`, one decision operation, a BOM, a vocabulary, and a variable set. It is Apache-2.0 from DecisionsDev/odm-on-cloud-getting-started.
+Two inputs land in the same index.
+
+- A Rule Designer folder: `.brl`, `.dta`, `.rfl`, `.bom`, `.voc`, `.dop`, and the rest.
+- A DAIF document: a `DecisionService` JSON file with `metadata`, `datamodel`, `operation`, and `taskmodel`. Classes become vocabulary, packages become rules and tables, `ruleFlow.ruleTasks` become the selection graph.
+
+```bash
+npm run reindex -- src/fixtures/daif/fuselage.json rulebase.sqlite
+```
+
+The Fuselage fixture follows the DecisionsDev interchange example. DAIF has no formal schema file in that repo; the parser follows the documented shape and accepts decision tables with columns and rows.

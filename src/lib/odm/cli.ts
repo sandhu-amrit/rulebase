@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { buildFromDaif } from "./daif.ts";
 import { driftReport } from "./drift.ts";
 import { buildKnowledgeBase } from "./kb.ts";
 import { RuleStore } from "./store.ts";
@@ -24,7 +25,9 @@ function loadFolder(root: string): SourceFile[] {
 
 const root = path.resolve(process.argv[2] ?? "src/fixtures/miniloan");
 const out = path.resolve(process.argv[3] ?? "rulebase.sqlite");
-const kb = buildKnowledgeBase(loadFolder(root), { commit: path.basename(root) });
+const kb = root.endsWith(".json")
+  ? buildFromDaif(fs.readFileSync(root, "utf8"), { commit: path.basename(root), source: root })
+  : buildKnowledgeBase(loadFolder(root), { commit: path.basename(root) });
 const snapshot = kb.snapshot();
 const store = new RuleStore(out);
 const previousId = store.latestId();

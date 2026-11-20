@@ -1,0 +1,137 @@
+{
+  "kind": "DecisionService",
+  "metadata": {
+    "display_name": "Fuselage Inspection",
+    "name": "FuselageInspection",
+    "locale": "en-US"
+  },
+  "datamodel": {
+    "name": "Fuselage dataModel",
+    "classes": [
+      {
+        "name": "InspectionDetails",
+        "jsonname": "InspectionDetails",
+        "description": "Inspection details",
+        "Fields": [
+          { "name": "aircraft", "type": "Aircraft", "description": "the aircraft to check" },
+          { "name": "check date", "type": "date", "description": "the date of the Airworthiness Status" }
+        ]
+      },
+      {
+        "name": "Aircraft",
+        "jsonname": "Aircraft",
+        "description": "The Aircraft",
+        "Fields": [
+          { "name": "series", "type": "string", "description": "the model series" },
+          { "name": "flight cycles", "type": "integer", "description": "the number of flight cycles" }
+        ]
+      },
+      {
+        "name": "AirworthinessStatus",
+        "jsonname": "AirworthinessStatus",
+        "description": "Airworthiness status",
+        "Fields": [
+          { "name": "eligible", "type": "boolean", "description": "whether the aircraft is eligible" },
+          { "name": "compliant", "type": "boolean", "description": "whether the aircraft is compliant" }
+        ]
+      }
+    ]
+  },
+  "operation": {
+    "name": "Fuselage operation",
+    "parameters": [
+      {
+        "name": "InspectionDetails",
+        "type": "InspectionDetails",
+        "verbalization": "the inspection details",
+        "direction": "in"
+      },
+      {
+        "name": "AirworthinessStatus",
+        "type": "AirworthinessStatus",
+        "verbalization": "the airworthiness status",
+        "direction": "out"
+      }
+    ]
+  },
+  "taskmodel": {
+    "packages": [
+      {
+        "name": "Initialization",
+        "artifacts": [
+          {
+            "type": "rule",
+            "name": "Default rule",
+            "bal": "then set 'the airworthiness status' to a new airworthiness status where eligible is false, compliant is true;"
+          }
+        ]
+      },
+      {
+        "name": "Eligibility",
+        "artifacts": [
+          {
+            "type": "rule",
+            "name": "Applicability rule",
+            "bal": "if the series of the aircraft of 'the inspection details' is one of { \"A390-100\", \"A390-250\" } then make it true that 'the airworthiness status' is eligible;"
+          },
+          {
+            "type": "rule",
+            "name": "MSN rule",
+            "bal": "if the MSN of the aircraft of 'the inspection details' is at most 0201 then make it true that 'the airworthiness status' is eligible;"
+          },
+          {
+            "type": "decisionTable",
+            "name": "Cycle limit",
+            "columns": [
+              { "kind": "condition", "template": "the flight cycles of the aircraft is {0}" },
+              { "kind": "action", "template": "set eligible of 'the airworthiness status' to {0}" }
+            ],
+            "rows": [
+              { "conditions": ["at least 1000"], "actions": ["false"] },
+              { "conditions": ["less than 1000"], "actions": ["true"] }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Compliance",
+        "artifacts": [
+          {
+            "type": "rule",
+            "name": "Eligibility rule",
+            "bal": "if it is not true that 'the airworthiness status' is eligible then set compliance of 'the airworthiness status' to false;"
+          },
+          {
+            "type": "rule",
+            "name": "Effective date rule",
+            "bal": "if the check date of 'the inspection details' is after 4/1/2010 then set compliance of 'the airworthiness status' to false;"
+          }
+        ]
+      }
+    ],
+    "ruleFlow": {
+      "name": "myRuleFlow",
+      "ruleTasks": [
+        { "name": "initialization", "algorithm": "default", "select": ["Initialization"], "requirements": [] },
+        {
+          "name": "eligibility",
+          "algorithm": "default",
+          "exitCriteria": "ruleinstance",
+          "ordering": "literal",
+          "select": ["Eligibility"],
+          "requirements": [{ "from": "initialization" }]
+        },
+        {
+          "name": "compliance",
+          "algorithm": "default",
+          "exitCriteria": "ruleinstance",
+          "ordering": "literal",
+          "select": ["Compliance"],
+          "requirements": [
+            { "from": "eligibility", "condition": "it is not true that 'the airworthiness status' is compliant" }
+          ]
+        }
+      ]
+    }
+  }
+}

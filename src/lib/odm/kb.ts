@@ -368,7 +368,19 @@ export function buildKnowledgeBase(
   files: SourceFile[],
   options: { commit?: string; glossary?: GlossaryEntry[] } = {},
 ): KnowledgeBase {
-  const extracted = parseSources(files);
+  return indexExtracted(parseSources(files), options);
+}
+
+export function indexExtracted(
+  extracted: {
+    artifacts: Artifact[];
+    terms: VocabTerm[];
+    warnings: string[];
+    projectName: string;
+    decisionService?: string;
+  },
+  options: { commit?: string; glossary?: GlossaryEntry[] } = {},
+): KnowledgeBase {
   const glossary = options.glossary ?? CURATED_GLOSSARY;
   const commit = options.commit;
   for (const artifact of extracted.artifacts) artifact.commit = commit;

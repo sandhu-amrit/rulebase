@@ -56,8 +56,11 @@ The ODM suite is `src/lib/odm/pipeline.test.ts`. It checks parse counts, term gr
 
 ### Reindex a project into SQLite
 
+A Rule Designer folder or a DAIF JSON document:
+
 ```bash
 npm run reindex -- path/to/rule-designer-project rulebase.sqlite
+npm run reindex -- path/to/decision-service.json rulebase.sqlite
 ```
 
 Each run appends a snapshot. The next run prints drift against the previous snapshot in that file. The file is gitignored.
