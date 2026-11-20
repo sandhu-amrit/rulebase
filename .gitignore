@@ -9,3 +9,6 @@ dist
 .env.*
 .DS_Store
 rulebase.json
+rulebase.sqlite
+rulebase.sqlite-wal
+rulebase.sqlite-shm

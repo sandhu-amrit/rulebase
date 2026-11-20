@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { buildKnowledgeBase } from "./kb.ts";
+import { RuleStore } from "./store.ts";
 import type { SourceFile } from "./types.ts";
 
 function loadFixture(): SourceFile[] {
@@ -83,6 +85,21 @@ describe("odm knowledge pipeline", () => {
     assert.ok(report.added.some((item) => item.name === "minimum credit score"));
     assert.ok(kb.projects().length >= 1);
     assert.ok((kb.projects()[0]?.artifacts.length ?? 0) > 0);
+  });
+
+  it("round-trips the index through the SQLite file", () => {
+    const file = path.join(os.tmpdir(), `rulebase-${process.pid}.sqlite`);
+    fs.rmSync(file, { force: true });
+    const store = new RuleStore(file);
+    const id = store.save(kb.snapshot(), { label: "miniloan", feedback: kb.feedback });
+    const loaded = store.load(id);
+    store.close();
+    fs.rmSync(file, { force: true });
+    assert.ok(loaded);
+    assert.equal(loaded?.artifacts.length, kb.artifacts.length);
+    assert.equal(loaded?.terms.length, kb.terms.length);
+    assert.equal(loaded?.edges.length, kb.edges.length);
+    assert.equal(loaded?.glossary.length, kb.glossary.length);
   });
 
   it("passes the production quality gates on the sample", () => {

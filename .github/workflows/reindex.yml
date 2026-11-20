@@ -17,4 +17,4 @@ jobs:
           node-version: 22
       - run: npm install --ignore-scripts
       - run: node --experimental-strip-types --test src/lib/odm/pipeline.test.ts
-      - run: node --experimental-strip-types src/lib/odm/cli.ts src/fixtures/miniloan rulebase.json
+      - run: node --experimental-strip-types src/lib/odm/cli.ts src/fixtures/miniloan rulebase.sqlite
