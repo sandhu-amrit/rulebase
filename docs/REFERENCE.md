@@ -108,7 +108,7 @@ Templates, queries, `.metadata`, and projects the decision service does not refe
   - searching a rule by its own name finds it in the top 5 at least 95% of the time.
 - **Term use** in BAL is matched by token patterns with typed slots, not substrings. For example, `the credit score of 'the applicant'` resolves through the definitions variable to `Borrower.creditScore`. When a subject cannot be typed, every candidate owner is kept and marked unresolved, so impact never drops a rule.
 - **Validation** rejects unknown words, unknown variables, members used on the wrong class, comparisons of the wrong type, and phrases that name only a class.
-- **Real-world coverage:** 27 public decision services (IBM DecisionsDev samples and ODM projects on GitHub, listed in [EXTENDING.md](EXTENDING.md#corpus)). They contain 336 rules and 387 table rows, and 1,675 of 1,678 term uses (99.8%) are linked to the right BOM member. Their remaining errors are defects in those repositories.
+- **Real-world coverage:** 27 public decision services (IBM DecisionsDev samples and ODM projects on GitHub, listed in [the regression corpus](../.github/copilot-instructions.md#corpus)). They contain 336 rules and 387 table rows, and 1,675 of 1,678 term uses (99.8%) are linked to the right BOM member. Their remaining errors are defects in those repositories.
 - **Not yet tested on a large private workspace.** The biggest public decision service has 35 rules. Use `rulebase anonymize` to test a real workspace, or to share a failing case without its business content.
 
 ## Performance

@@ -94,6 +94,6 @@ Every decision above is built, except the IBM-parser comparison (D17) and the it
 
 - **No large private workspace has been indexed yet.** The biggest public decision service has 35 rules, so scale has only been measured on synthetic data. `rulebase anonymize` exists so a real workspace can be tested without its business content leaving the machine. It verifies that the copy indexes the same way.
 - **BAL term usage is resolved by matching instantiated phrase patterns,** not a full BAL grammar. On the corpus, 3 uses are still not typed: arithmetic inside a phrase, and French `a` used as the verb "has". The IBM oracle comparison (D17) is how the remaining mismatches will be found.
-- **Rule languages are limited to English, French, Portuguese and Spanish.** The word lists live in `src/text.ts` and `src/bal.ts`, and `EXTENDING.md` §4 says how to add a language.
+- **Rule languages are limited to English, French, Portuguese and Spanish.** The word lists live in `src/text.ts` and `src/bal.ts`, and the "New BAL language" recipe in `.github/copilot-instructions.md` says how to add one.
 - **Java (XOM) method bodies are not read** (D11). Impact follows B2X-implemented members to the fields they read, but not Java-implemented methods. A rule calling "the customer is eligible" isn't flagged when a field the Java method reads changes.
 - **Other IBM decision products** (ADS, DSI rule agents) share the project layout. They are detected and reported as unsupported, not read.

@@ -15,7 +15,7 @@ Rulebase is read-only: a person reviews the proposal and makes the change in Rul
 | Install Rulebase and use it with my assistant on my rule project | [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) |
 | Look up a tool, a command, a setting, or what an answer means | [docs/REFERENCE.md](docs/REFERENCE.md) |
 | Understand why it works the way it does | [docs/DESIGN.md](docs/DESIGN.md) |
-| Change or improve Rulebase (people and coding agents) | [.github/copilot-instructions.md](.github/copilot-instructions.md), then [docs/EXTENDING.md](docs/EXTENDING.md) |
+| Change or improve Rulebase (people and coding agents) | [.github/copilot-instructions.md](.github/copilot-instructions.md) |
 
 ## Which files are for which Copilot
 
