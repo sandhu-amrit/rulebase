@@ -2,3 +2,5 @@
 fixtures/** -text
 # Compiled output: committed so `npm install -g github:...` needs no build step. CI checks it matches src/.
 dist/** linguist-generated=true -diff
+# Skills ship byte-identical on every platform (frontmatter parsers expect LF).
+skills/** text eol=lf

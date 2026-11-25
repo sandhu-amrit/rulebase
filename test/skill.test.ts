@@ -5,7 +5,8 @@ import { test } from "node:test";
 import { TOOLS } from "../src/tools.ts";
 import { ROOT } from "./helpers.ts";
 
-const skill = fs.readFileSync(path.join(ROOT, "skills", "odm-change-analysis", "SKILL.md"), "utf8");
+// Normalize line endings: a Windows checkout may convert them.
+const skill = fs.readFileSync(path.join(ROOT, "skills", "odm-change-analysis", "SKILL.md"), "utf8").replace(/\r\n/g, "\n");
 
 test("the skill names every MCP tool, and only real ones", () => {
   for (const tool of TOOLS) assert.ok(skill.includes(`\`${tool.name}\``), `skill does not mention ${tool.name}`);
