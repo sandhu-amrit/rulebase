@@ -697,19 +697,82 @@ export class KnowledgeBase {
    * Whether and how a rule runs, in words. A rule runs when a ruleflow task selects it and an
    * operation runs that ruleflow, or when an operation has no ruleflow (it runs every rule).
    */
+  /**
+   * Every way a ruleflow gets run: directly by an operation, or as a subflow of a task in another ruleflow
+   * (recursively). Each context carries the chain of calling tasks, the conditions under which each
+   * calling task is reached, whether every step of the chain is reachable, and the operations at its top.
+   */
+  flowRunContexts(flowId: string, seen = new Set<string>()): { via: string[]; conditions: string[]; reachable: boolean; operations: string[] }[] {
+    if (seen.has(flowId)) return [];
+    const nextSeen = new Set(seen).add(flowId);
+    const contexts: { via: string[]; conditions: string[]; reachable: boolean; operations: string[] }[] = [];
+    const direct = this.flowsRunBy.get(flowId) ?? [];
+    if (direct.length) contexts.push({ via: [], conditions: [], reachable: true, operations: direct });
+    for (const edge of this.model.edges) {
+      if (edge.type !== "SUBFLOW" || edge.to !== flowId) continue;
+      const [parent, task] = edge.from.split("#");
+      const analysis = this.flows.get(parent)?.tasks.get(task);
+      const reachable = analysis?.reachable ?? true;
+      const condition = analysis && !analysis.always && analysis.reachable ? describePaths(analysis) : undefined;
+      const step = `ruleflow '${this.model.artifacts.get(parent)?.name ?? parent}' task '${task}'`;
+      for (const outer of this.flowRunContexts(parent, nextSeen)) {
+        contexts.push({
+          via: [...outer.via, step],
+          conditions: [...outer.conditions, ...(condition ? [condition] : [])],
+          reachable: outer.reachable && reachable,
+          operations: outer.operations,
+        });
+      }
+      // A parent that nothing runs still explains the chain; it just has no operation.
+      if (!this.flowRunContexts(parent, nextSeen).length) contexts.push({ via: [step], conditions: condition ? [condition] : [], reachable, operations: [] });
+    }
+    return contexts;
+  }
+
+  /**
+   * Whether and how a rule runs, in words. A rule runs when a ruleflow task selects it, the task is
+   * reachable, and the ruleflow is run by an operation, directly or as a subflow through tasks that are
+   * themselves reachable. Or when an operation has no ruleflow (it runs every rule). Conditions are
+   * combined along the whole chain, so a rule in a subflow carries its caller's conditions too.
+   */
   runsDescription(artifact: Artifact): { runs: boolean; lines: string[] } {
     const path = this.runPath(artifact);
-    const unreachable = path.selectedBy.filter((item) => !this.taskReachable(item.flow, item.task));
-    const lines = path.selectedBy.filter((item) => this.taskReachable(item.flow, item.task)).map((item) => item.reason);
-    for (const item of unreachable) {
-      lines.push(`selected by ruleflow '${this.model.artifacts.get(item.flow)?.name ?? item.flow}' task '${item.task}', which no path from the start reaches`);
+    const lines: string[] = [];
+    let runs = false;
+    let anyContext = false;
+    for (const item of path.selectedBy) {
+      const flowName = this.model.artifacts.get(item.flow)?.name ?? item.flow;
+      if (!this.taskReachable(item.flow, item.task)) {
+        lines.push(`selected by ruleflow '${flowName}' task '${item.task}', which no path from the start reaches`);
+        continue;
+      }
+      const contexts = this.flowRunContexts(item.flow);
+      if (!contexts.length) {
+        lines.push(item.reason);
+        continue;
+      }
+      for (const context of contexts) {
+        anyContext = true;
+        if (!context.via.length) {
+          lines.push(item.reason);
+          if (context.operations.length) runs = true;
+          continue;
+        }
+        const chain = context.via.join(" → ");
+        if (!context.reachable) {
+          lines.push(`${item.reason}; called from ${chain}, which no path from its start reaches`);
+          continue;
+        }
+        const when = context.conditions.length ? `; only when the caller is reached: ${context.conditions.join(" and ")}` : "";
+        const ops = context.operations.length ? "" : "; no decision operation runs the calling ruleflow";
+        lines.push(`${item.reason}; called as a subflow from ${chain}${when}${ops}`);
+        if (context.operations.length) runs = true;
+      }
     }
     const allOps = this.operationsRunningAll();
     const anyOperation = [...this.model.artifacts.values()].some((item) => item.type === "decisionOperation");
     const anyFlow = [...this.model.artifacts.values()].some((item) => item.type === "ruleflow");
-    const reachableFlows = new Set(path.selectedBy.filter((item) => this.taskReachable(item.flow, item.task)).map((item) => item.flow));
-    let runs = path.operations.length > 0 && reachableFlows.size > 0;
-    if (path.selectedBy.length && !path.operations.length && anyOperation) {
+    if (path.selectedBy.length && !anyContext && anyOperation && !runs) {
       lines.push("but no decision operation runs that ruleflow");
     }
     for (const op of allOps) {
@@ -717,8 +780,13 @@ export class KnowledgeBase {
       runs = true;
     }
     if (!anyOperation) {
-      // No operation to anchor on (classic projects): selection is the best evidence we have.
-      runs = path.selectedBy.length > 0 || !anyFlow;
+      // No operation to anchor on (classic projects): a reachable selection, through reachable callers, is the best evidence we have.
+      runs =
+        path.selectedBy.some((item) => {
+          if (!this.taskReachable(item.flow, item.task)) return false;
+          const contexts = this.flowRunContexts(item.flow);
+          return !contexts.length || contexts.some((context) => context.reachable);
+        }) || !anyFlow;
       if (!anyFlow) lines.push("no ruleflow or operation: every rule in the ruleset runs");
     }
     if (!runs && !path.selectedBy.length) lines.push("not selected by any ruleflow task, and no operation runs all rules: this rule does not run");
@@ -1073,10 +1141,21 @@ export class KnowledgeBase {
             after: info?.after ?? [],
           };
         });
+      const contexts = this.flowRunContexts(flow.id).filter((context) => context.via.length);
       return {
         ...this.summary(flow),
         runBy: operations.length ? operations.map((name) => `operation '${name}'`) : calledFrom.length ? [] : ["no decision operation runs this ruleflow"],
         ...(calledFrom.length ? { calledFrom } : {}),
+        ...(contexts.length
+          ? {
+              runsAsSubflow: contexts.map((context) => ({
+                via: context.via,
+                when: context.reachable ? (context.conditions.length ? context.conditions.join(" and ") : "always") : "never: a calling task is unreachable",
+                operations: context.operations.map((op) => this.model.artifacts.get(op)?.name ?? op),
+              })),
+              note: "this is a subflow: every task's reachedWhen applies on top of the conditions in runsAsSubflow",
+            }
+          : {}),
         start: analysis.starts,
         ...(analysis.unreachable.length ? { unreachable: analysis.unreachable } : {}),
         ...(analysis.hasCycle ? { note: "the flow has a loop: a transition goes back to an earlier task" } : {}),

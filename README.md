@@ -69,7 +69,7 @@ A requirement with several clauses is worked clause by clause and then merged, s
 
 Every answer ends with `checked`: when the index was built, how many files and rules it covers, the branch when known, and any file that could not be read. An unread file can hide a rule, so the assistant should mention it. If the workspace could not be re-indexed after a change, `checked.stale` says so, and the answer comes from the last good index.
 
-"Runs" means: a ruleflow task selects the rule (by package, `package.name` or UUID), some path from the ruleflow's start reaches that task, and a decision operation runs the ruleflow; or an operation has no ruleflow and so runs every rule. The `runs` line names the conditions on every path to the task, not just the last transition.
+"Runs" means: a ruleflow task selects the rule (by package, `package.name` or UUID), some path from the ruleflow's start reaches that task, and a decision operation runs the ruleflow, directly or as a subflow through calling tasks that are themselves reachable, at any depth. Or an operation has no ruleflow and so runs every rule. The `runs` line names the conditions on every path to the task and, for a subflow, the chain of calling tasks with their conditions.
 
 | Tool | What it returns |
 |---|---|

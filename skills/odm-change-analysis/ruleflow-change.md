@@ -23,7 +23,7 @@ The risk is a change that looks local but changes **which rules run, when, or in
 
    *Done when* every rule whose running, condition or order changes is listed with the reason.
 
-4. **Check the operations.** `runBy` shows the operations affected. For a subflow, `calledFrom` shows the parent task and its `reachedWhen`, so the subflow's own conditions apply on top of the parent's.
+4. **Check the operations.** `runBy` shows the operations affected. For a subflow, `runsAsSubflow` gives every call chain from an operation down to it, with the combined conditions (`when`). A subflow task runs only when both its own `reachedWhen` and its chain's `when` hold. A chain whose `when` is "never" doesn't run the subflow at all.
 
 5. **Write the proposal** in the shape in `SKILL.md`, with a **Ruleflow change** section in place of (or as well as) rule changes:
 

@@ -97,6 +97,8 @@ Both were checked end to end with headless Claude Code sessions on LoanValidatio
 - **A four-clause change request.** The session grounded the vocabulary once and ran each clause on its own. It blocked the clause needing self-employment, which isn't in the vocabulary, and caught that "accept up to 1,500,000" also needs `is at least` changed to `is more than`.
 - **Moving the insurance task before eligibility.** The session found that the insurance table reads the grade that eligibility sets. Moving the task would silently give every loan the default rate, so it proposed dropping one transition condition instead.
 
+Subflows are followed at any depth. `flowRunContexts` builds every call chain from an operation down to a ruleflow, combines the calling tasks' conditions, and checks that each calling task is reachable. A rule inside a subflow carries its callers' conditions in its `runs` line, and a subflow called only from an unreachable task does not run. On the governance asset, a rule four levels deep reports `mainRuleflow → sharedFlow → advancedGovernanceFlow → elementCommitted`, with the condition that selects it.
+
 The first run also showed `find_change_candidates`' add section disagreeing with the run path about a sub-package selected through its parent. Both now use one lookup, `tasksSelectingPackage`.
 
 ## Not built yet
