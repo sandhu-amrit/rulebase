@@ -19,7 +19,7 @@
     "prepare": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --no-warnings=ExperimentalWarning --test \"test/**/*.test.ts\"",
-    "bench": "node --experimental-strip-types --no-warnings=ExperimentalWarning bench/bench.ts",
+    "bench": "node --expose-gc --experimental-strip-types --no-warnings=ExperimentalWarning bench/bench.ts",
     "rulebase": "node --experimental-strip-types --no-warnings=ExperimentalWarning src/cli.ts",
     "format": "prettier --write ."
   },

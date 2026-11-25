@@ -15,6 +15,8 @@ const parser = new XMLParser({
   ignorePiTags: true,
   parseTagValue: false,
   parseAttributeValue: false,
+  // Callbacks get a matcher, not a path string: building strings per element was the top cost.
+  jPath: false,
   isArray: (_name, _jpath, _isLeaf, isAttribute) => !isAttribute,
 });
 

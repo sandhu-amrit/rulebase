@@ -4,8 +4,9 @@
  */
 import { BAL_WORDS, tokenizeBal, type PhraseMatch } from "./bal.ts";
 import type { Linked, Use } from "./link.ts";
-import type { Artifact, BomClass, BomMember, Phrase, ProjectInfo, TableRow, Warning } from "./model.ts";
+import type { Artifact, BomClass, BomMember, Phrase, ProjectInfo, TableCell, TableRow, Warning } from "./model.ts";
 import { RULE_KINDS } from "./model.ts";
+import { renderCell } from "./parse/artifacts.ts";
 import { typeCategory } from "./parse/bom.ts";
 import { SearchIndex } from "./search.ts";
 import { editDistance, normalize, splitIdentifier, stem } from "./text.ts";
@@ -60,6 +61,7 @@ export class KnowledgeBase {
   private readonly subflowParents = new Map<string, string[]>();
   private readonly derivedTo = new Map<string, string[]>();
   private readonly phrasesByMember = new Map<string, Phrase[]>();
+  private readonly rulesByNormalizedName = new Map<string, string[]>();
 
   constructor(model: Linked, meta: IndexMeta) {
     this.model = model;
@@ -107,6 +109,13 @@ export class KnowledgeBase {
       termDocs.push({ key: `glossary:${index}`, fields: [{ text: entry.phrase, weight: 3 }, { text: entry.note ?? "", weight: 1 }] });
     }
     this.termSearch = new SearchIndex(termDocs);
+    for (const item of rules) {
+      for (const key of new Set([normalize(item.name), normalize(`${item.package} ${item.name}`)])) {
+        const list = this.rulesByNormalizedName.get(key) ?? [];
+        list.push(item.id);
+        this.rulesByNormalizedName.set(key, list);
+      }
+    }
     for (const phrase of model.phrases.values()) {
       if (!phrase.memberId) continue;
       const list = this.phrasesByMember.get(phrase.memberId) ?? [];
@@ -706,8 +715,22 @@ export class KnowledgeBase {
     const artifact = found.artifact;
     if (!artifact) return { error: `No artifact '${input.id}'.`, suggestions: this.ruleSearch.search(input.id, { limit: 5 }).map((hit) => hit.key), checked: this.checked() };
     const uses = this.model.uses.get(artifact.id) ?? [];
-    const copy: Artifact = { ...artifact };
-    if (input.rows && copy.rows) copy.rows = copy.rows.filter((row) => input.rows?.includes(row.index));
+    const { rows: allRows, ...rest } = artifact;
+    const MAX_ROWS = 100;
+    const chosen = allRows ? (input.rows ? allRows.filter((row) => input.rows?.includes(row.index)) : allRows.slice(0, MAX_ROWS)) : undefined;
+    const columns = new Map((artifact.columns ?? []).map((column) => [column.id, column]));
+    const cell = (item: TableCell) => ({
+      column: item.columnId,
+      values: item.params,
+      text: renderCell(item, columns.get(item.columnId)),
+      ...(item.enabled ? {} : { disabled: true }),
+      ...(item.otherwise ? { otherwise: true } : {}),
+    });
+    const copy = {
+      ...rest,
+      ...(chosen ? { rows: chosen.map((row) => ({ row: row.index, conditions: row.conditions.map(cell), actions: row.actions.map(cell) })) } : {}),
+      ...(allRows && !input.rows && allRows.length > MAX_ROWS ? { moreRows: allRows.length - MAX_ROWS, hint: "pass rows=[...] for specific rows" } : {}),
+    };
     const run = RULE_KINDS.includes(artifact.type as never) ? this.runPath(artifact) : undefined;
     return {
       artifact: copy,
@@ -799,11 +822,14 @@ export class KnowledgeBase {
         });
       }
     }
+    const MAX = 150;
     return {
       target: ref,
       resolvedTo: targets,
       derived: expandedTargets.filter((item) => item.via).map((item) => item.via),
-      affected,
+      total: affected.length,
+      affected: affected.slice(0, MAX),
+      ...(affected.length > MAX ? { note: `${affected.length - MAX} more not shown; narrow the target or use find_change_candidates` } : {}),
       checked: this.checked({ unresolvedUses: unresolved, ...(unresolved ? { note: "unresolved uses are included so nothing is missed; their subject could not be typed" } : {}) }),
     };
   }
@@ -831,7 +857,11 @@ export class KnowledgeBase {
 
   /** Rule-name search, used by the recall gate and by `get_artifact` suggestions. */
   searchRules(query: string, limit = 10) {
-    return this.ruleSearch.search(query, { limit }).map((hit) => ({ ...this.summary(this.model.artifacts.get(hit.key) as Artifact), score: Math.round(hit.score * 100) / 100 }));
+    // A rule searched by its exact name comes first, whatever the body length.
+    const exact = this.rulesByNormalizedName.get(normalize(query)) ?? [];
+    const hits = this.ruleSearch.search(query, { limit: limit + exact.length });
+    const ordered = [...exact.map((key) => ({ key, score: Infinity })), ...hits.filter((hit) => !exact.includes(hit.key))].slice(0, limit);
+    return ordered.map((hit) => ({ ...this.summary(this.model.artifacts.get(hit.key) as Artifact), score: hit.score === Infinity ? 100 : Math.round(hit.score * 100) / 100 }));
   }
 
   warnings(): Warning[] {
@@ -859,7 +889,8 @@ function bodyText(artifact: Artifact): string {
     artifact.preconditions,
     artifact.irl,
     ...(artifact.columns ?? []).map((column) => column.template),
-    ...(artifact.rows ?? []).map((row) => row.summary),
+    // Row text is the column templates again plus values; only text values add anything searchable.
+    [...new Set((artifact.rows ?? []).flatMap((row) => [...row.conditions, ...row.actions].flatMap((cell) => cell.params.filter((param) => /^".*"$/.test(param)))))].join(" "),
     ...(artifact.tasks ?? []).map((task) => [task.id, ...task.packages, ...task.rules, task.filter].filter(Boolean).join(" ")),
   ]
     .filter(Boolean)

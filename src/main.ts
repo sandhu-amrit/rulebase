@@ -13,7 +13,7 @@ const HELP = `rulebase ${VERSION}: a read-only knowledge base over an IBM ODM Ru
 
 Usage:
   rulebase mcp <workspace>                 Serve the MCP tools over stdio (what an AI assistant starts)
-  rulebase index <workspace>               Index (incrementally) and print a summary
+  rulebase index <workspace> [--full]      Index (incrementally; --full re-reads every file) and print a summary
   rulebase check <workspace> [--json]      Run every quality gate; exits 1 if one fails
   rulebase report <workspace> [-o file]    Write a static HTML report (default rulebase-report.html)
   rulebase drift <workspace>               What changed since the previous index
@@ -64,7 +64,7 @@ export async function main(argv: string[]): Promise<number> {
     try {
       switch (command) {
         case "index":
-          return index(session);
+          return index(session, args.includes("--full"));
         case "check":
           return check(session, args.includes("--json"));
         case "report":
@@ -91,8 +91,8 @@ function usage(message: string): number {
   return 2;
 }
 
-function index(session: Session): number {
-  const { kb, stats } = session.rebuild();
+function index(session: Session, full: boolean): number {
+  const { kb, stats } = session.rebuild(full);
   const overview = kb.listDecisionServices();
   console.log(`${kb.meta.decisionService}: ${kb.meta.projects.length} project(s), ${stats.files} files`);
   console.log(`  parsed ${stats.parsed}, reused ${stats.reused}; scan ${stats.scanMs} ms, parse ${stats.parseMs} ms, link ${stats.linkMs} ms`);

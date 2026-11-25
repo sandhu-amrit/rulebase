@@ -50,6 +50,18 @@ export interface LinkInput {
   files: ParsedFile[];
   locale?: string;
   glossary: GlossaryEntry[];
+  /**
+   * Uses of each artifact from the previous link, keyed by vocabulary signature,
+   * artifact id and file hash. Unchanged artifacts against an unchanged
+   * vocabulary are not matched again. The map is updated in place.
+   */
+  useCache?: Map<string, CachedUses>;
+}
+
+export interface CachedUses {
+  list: Use[];
+  /** Matching notes for this artifact (e.g. an untyped definition), replayed on reuse. */
+  warnings: Warning[];
 }
 
 export interface Linked {
@@ -233,7 +245,6 @@ export function link(input: LinkInput): Linked {
   const artifacts = new Map<string, Artifact>();
   for (const file of input.files) {
     for (const artifact of file.artifacts ?? []) {
-      artifact.provenance.project = file.project;
       if (artifacts.has(artifact.id)) {
         const prior = artifacts.get(artifact.id) as Artifact;
         if (artifact.type === "package" && prior.type === "package") continue; // same package in two projects
@@ -246,7 +257,6 @@ export function link(input: LinkInput): Linked {
   for (const artifact of artifacts.values()) {
     if (artifact.type !== "variableSet") continue;
     for (const variable of artifact.variables ?? []) {
-      variable.provenance.project = artifact.provenance.project;
       const key = stripArticles(normalize(variable.verbalization));
       if (!classes.has(variable.type) && !isPrimitive(variable.type)) {
         warnings.push({ path: artifact.provenance.path, severity: "error", message: `variable '${variable.name}' has type ${variable.type}, which is not in the BOM` });
@@ -291,6 +301,16 @@ export function link(input: LinkInput): Linked {
 
   // ---- 4. Uses --------------------------------------------------------------
   const uses = new Map<string, Use[]>();
+  // Everything matching depends on besides the artifact itself.
+  const vocabularyKey = input.files
+    .filter((file) => file.kind !== "artifact" || (file.artifacts ?? []).some((artifact) => artifact.type === "variableSet"))
+    .map((file) => `${file.path}:${file.hash}`)
+    .sort()
+    .join("|") + `|${locale ?? ""}`;
+  const fileHash = new Map<string, string>();
+  for (const file of input.files) for (const artifact of file.artifacts ?? []) fileHash.set(artifact.id, file.hash);
+  const useCache = input.useCache;
+  const liveKeys = new Set<string>();
   const memberNames = new Map<string, string[]>();
   for (const member of members.values()) {
     const list = memberNames.get(member.name) ?? [];
@@ -298,7 +318,16 @@ export function link(input: LinkInput): Linked {
     memberNames.set(member.name, list);
   }
   for (const artifact of artifacts.values()) {
+    const cacheKey = useCache ? `${vocabularyKey}\u0000${artifact.id}\u0000${fileHash.get(artifact.id) ?? ""}` : "";
+    const cached = useCache?.get(cacheKey);
+    if (cached) {
+      uses.set(artifact.id, cached.list);
+      warnings.push(...cached.warnings);
+      liveKeys.add(cacheKey);
+      continue;
+    }
     const list: Use[] = [];
+    const warningsBefore = warnings.length;
     const localEnv = withDefinitions(env, artifact, matcher, warnings);
     const scan = (text: string | undefined, where: string) => {
       if (!text) return;
@@ -331,8 +360,14 @@ export function link(input: LinkInput): Linked {
         scan(task.actions, `task:${task.id}`);
       }
     }
-    uses.set(artifact.id, dedupeUses(list));
+    const final = dedupeUses(list);
+    uses.set(artifact.id, final);
+    if (useCache) {
+      useCache.set(cacheKey, { list: final, warnings: warnings.slice(warningsBefore) });
+      liveKeys.add(cacheKey);
+    }
   }
+  if (useCache) for (const key of [...useCache.keys()]) if (!liveKeys.has(key)) useCache.delete(key);
   const usedBy = new Map<string, { artifactId: string; use: Use }[]>();
   for (const [artifactId, list] of uses) {
     for (const use of list) {

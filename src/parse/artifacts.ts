@@ -184,13 +184,18 @@ function fillTemplate(template: string, params: string[]): string {
   return filled.replace(/\s+/g, " ").trim();
 }
 
-function tableCell(columnId: string, expression: unknown, column: TableColumn | undefined, enabled: boolean): TableCell {
+function tableCell(columnId: string, expression: unknown, enabled: boolean): TableCell {
   const params = children(expression, "Param").map((param) => textOf(param).trim());
   const override = textOf(child(expression, "Text")).trim();
   const otherwise = /^otherwise$/i.test(override) || attr(expression, "Otherwise") === "true";
-  const template = override || column?.template || "";
-  const text = params.length || override ? fillTemplate(template, params) : "";
-  return { columnId, params, text, enabled, ...(otherwise ? { otherwise } : {}) };
+  return { columnId, params, ...(override && !otherwise ? { template: override } : {}), enabled, ...(otherwise ? { otherwise } : {}) };
+}
+
+/** Readable text of a cell: its template (or the column's) filled with its values. */
+export function renderCell(cell: TableCell, column: TableColumn | undefined): string {
+  if (cell.otherwise) return "otherwise";
+  if (!cell.params.length && !cell.template) return "";
+  return fillTemplate(cell.template ?? column?.template ?? "", cell.params);
 }
 
 function decisionTable(ctx: Ctx): Artifact {
@@ -212,24 +217,18 @@ function decisionTable(ctx: Ctx): Artifact {
       });
     }
   }
-  const byId = new Map(columns.map((column) => [column.id, column]));
   const rows: TableRow[] = [];
   const walk = (partition: unknown, prefix: TableCell[]) => {
     const defId = attr(partition, "DefId") ?? "";
     for (const condition of children(partition, "Condition")) {
-      const current = tableCell(defId, child(condition, "Expression"), byId.get(defId), true);
+      const current = tableCell(defId, child(condition, "Expression"), true);
       const path = [...prefix, current];
       for (const nested of children(condition, "Partition")) walk(nested, path);
       for (const actionSet of children(condition, "ActionSet")) {
-        const actions = children(actionSet, "Action").map((action) => {
-          const id = attr(action, "DefId") ?? "";
-          return tableCell(id, child(action, "Expression"), byId.get(id), attr(action, "Enabled") !== "false");
-        });
-        const summary = [
-          ...path.filter((cell) => cell.text).map((cell) => cell.text),
-          ...actions.filter((cell) => cell.enabled && cell.text).map((cell) => cell.text),
-        ].join(" · ");
-        rows.push({ index: rows.length + 1, conditions: path, actions, summary });
+        const actions = children(actionSet, "Action").map((action) =>
+          tableCell(attr(action, "DefId") ?? "", child(action, "Expression"), attr(action, "Enabled") !== "false"),
+        );
+        rows.push({ index: rows.length + 1, conditions: path, actions });
       }
     }
   };
@@ -237,11 +236,10 @@ function decisionTable(ctx: Ctx): Artifact {
   for (const partition of children(contents, "Partition")) walk(partition, []);
   // Tables with only action columns keep their rows as bare ActionSets.
   for (const actionSet of children(contents, "ActionSet")) {
-    const actions = children(actionSet, "Action").map((action) => {
-      const id = attr(action, "DefId") ?? "";
-      return tableCell(id, child(action, "Expression"), byId.get(id), attr(action, "Enabled") !== "false");
-    });
-    rows.push({ index: rows.length + 1, conditions: [], actions, summary: actions.map((cell) => cell.text).join(" · ") });
+    const actions = children(actionSet, "Action").map((action) =>
+      tableCell(attr(action, "DefId") ?? "", child(action, "Expression"), attr(action, "Enabled") !== "false"),
+    );
+    rows.push({ index: rows.length + 1, conditions: [], actions });
   }
   const preconditions = textOf(child(child(body, "Preconditions"), "Text")).trim() || undefined;
   if (!columns.length) ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: "decision table has no column definitions" });

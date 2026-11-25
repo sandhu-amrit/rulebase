@@ -5,16 +5,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { KnowledgeBase } from "./kb.ts";
-import { link, type ParsedFile } from "./link.ts";
+import { link, type CachedUses, type ParsedFile } from "./link.ts";
 import type { GlossaryEntry, Warning } from "./model.ts";
 import { extensionOf, parseArtifactFile } from "./parse/artifacts.ts";
 import { parseB2x } from "./parse/b2x.ts";
 import { parseBom } from "./parse/bom.ts";
 import { parseVoc } from "./parse/voc.ts";
-import { scanWorkspace, sha, type WorkspaceFile, type WorkspaceScan } from "./workspace.ts";
+import { fileContent, scanWorkspace, sha, type FileStat, type WorkspaceFile, type WorkspaceScan } from "./workspace.ts";
 
 /** Bump when a parser changes output shape, so cached parses are not reused. */
-export const PARSER_VERSION = "2";
+export const PARSER_VERSION = "3";
 
 export interface ParseCache {
   get(key: string): ParsedFile | undefined;
@@ -26,23 +26,24 @@ export function cacheKey(file: WorkspaceFile): string {
 }
 
 export function parseFile(file: WorkspaceFile): ParsedFile {
+  const content = fileContent(file);
   const provenance = { project: file.project, path: file.path };
   const ext = extensionOf(file.path);
   const base = { path: file.path, hash: file.hash, project: file.project };
   if (ext === ".bom") {
     const bomEntry = file.path.split("/").pop()?.replace(/\.bom$/i, "") ?? file.path;
-    const bom = parseBom(file.content, provenance, bomEntry);
+    const bom = parseBom(content, provenance, bomEntry);
     return { ...base, kind: "bom", bom, warnings: bom.warnings };
   }
   if (ext === ".voc") {
-    const voc = parseVoc(file.content, provenance);
+    const voc = parseVoc(content, provenance);
     return { ...base, kind: "voc", voc, warnings: voc.warnings };
   }
   if (ext === ".b2x") {
-    const b2x = parseB2x(file.content, provenance);
+    const b2x = parseB2x(content, provenance);
     return { ...base, kind: "b2x", b2x, warnings: b2x.warnings };
   }
-  const result = parseArtifactFile(file.content, provenance, file.role === "source" ? file.packageName : "");
+  const result = parseArtifactFile(content, provenance, file.role === "source" ? file.packageName : "");
   return { ...base, kind: "artifact", artifacts: result.artifacts, warnings: result.warnings };
 }
 
@@ -89,7 +90,7 @@ export function loadGlossary(root: string, configured?: string): { entries: Glos
   return { entries, path: rel, hash: sha(text), warnings };
 }
 
-export function buildFromScan(scan: WorkspaceScan, cache?: ParseCache, previous?: ParsedFile[]): BuildResult {
+export function buildFromScan(scan: WorkspaceScan, cache?: ParseCache, previous?: ParsedFile[], useCache?: Map<string, CachedUses>): BuildResult {
   const t0 = performance.now();
   const byKey = new Map<string, ParsedFile>();
   if (previous) for (const file of previous) byKey.set(file.hash + file.path, file);
@@ -109,13 +110,14 @@ export function buildFromScan(scan: WorkspaceScan, cache?: ParseCache, previous?
   }
   const t1 = performance.now();
   const glossary = loadGlossary(scan.root, scan.config.glossary);
-  // link() mutates artifacts and members while resolving; work on copies so cached parses stay pristine.
+  // link() copies what it changes, so cached parses are shared, not cloned.
   const linked = link({
     decisionService: scan.decisionService,
     projects: scan.projects,
-    files: structuredClone(parsed),
+    files: parsed,
     locale: scan.config.locale,
     glossary: glossary.entries,
+    useCache,
   });
   linked.warnings.unshift(...scan.warnings, ...glossary.warnings);
   const t2 = performance.now();
@@ -145,11 +147,11 @@ export function buildFromScan(scan: WorkspaceScan, cache?: ParseCache, previous?
   };
 }
 
-export function buildWorkspace(root: string, cache?: ParseCache, previous?: ParsedFile[]): BuildResult {
+export function buildWorkspace(root: string, cache?: ParseCache, previous?: ParsedFile[], previousStats?: Map<string, FileStat>, useCache?: Map<string, CachedUses>): BuildResult {
   const t0 = performance.now();
-  const scan = scanWorkspace(root);
+  const scan = scanWorkspace(root, { previous: previousStats });
   const scanMs = Math.round(performance.now() - t0);
-  const result = buildFromScan(scan, cache, previous);
+  const result = buildFromScan(scan, cache, previous, useCache);
   result.stats.scanMs = scanMs;
   return result;
 }

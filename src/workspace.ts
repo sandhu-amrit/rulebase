@@ -38,9 +38,33 @@ export interface WorkspaceFile {
   packageName: string;
   /** "source" | "bom" | "deployment" | other folder role. */
   role: "source" | "bom" | "other";
-  content: string;
+  /** Absent when the file was not re-read because its size and mtime are unchanged. Use `fileContent()`. */
+  content?: string;
   hash: string;
   encoding: string;
+  fullPath: string;
+  size: number;
+  mtimeMs: number;
+}
+
+/** What a previous scan learned about a file, keyed by workspace-relative path. */
+export interface FileStat {
+  size: number;
+  mtimeMs: number;
+  hash: string;
+  encoding: string;
+  lossy: boolean;
+}
+
+export interface ScanOptions {
+  /** Reuse hashes of files whose size and mtime are unchanged. */
+  previous?: Map<string, FileStat>;
+}
+
+/** The decoded text of a scanned file, reading it now if the scan skipped it. */
+export function fileContent(file: WorkspaceFile): string {
+  if (file.content !== undefined) return file.content;
+  return decodeBytes(fs.readFileSync(file.fullPath)).text;
 }
 
 export interface WorkspaceScan {
@@ -54,6 +78,8 @@ export interface WorkspaceScan {
   /** Counts of files seen but not indexed, by extension. */
   skipped: Record<string, number>;
   branch?: string;
+  /** For the next scan. */
+  stats: Map<string, FileStat>;
 }
 
 export function loadConfig(root: string): { config: WorkspaceConfig; hash: string; warnings: Warning[] } {
@@ -157,7 +183,7 @@ function readProject(root: string, folder: string, warnings: Warning[]): Project
   };
 }
 
-export function scanWorkspace(rootInput: string): WorkspaceScan {
+export function scanWorkspace(rootInput: string, options: ScanOptions = {}): WorkspaceScan {
   const root = path.resolve(rootInput);
   if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
     throw new Error(`Workspace folder not found: ${root}`);
@@ -229,14 +255,23 @@ export function scanWorkspace(rootInput: string): WorkspaceScan {
   const projects = [...included.values()].sort((a, b) => a.name.localeCompare(b.name));
   const files: WorkspaceFile[] = [];
   const skipped: Record<string, number> = {};
+  const stats = new Map<string, FileStat>();
   for (const project of projects) {
-    collectFiles(root, project, files, skipped, warnings);
+    collectFiles(root, project, files, skipped, warnings, options.previous, stats);
   }
   files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-  return { root, config, configHash, decisionService: service.name, projects, files, warnings, skipped, branch: detectBranch(root, projects) };
+  return { root, config, configHash, decisionService: service.name, projects, files, warnings, skipped, branch: detectBranch(root, projects), stats };
 }
 
-function collectFiles(root: string, project: ProjectInfo, files: WorkspaceFile[], skipped: Record<string, number>, warnings: Warning[]) {
+function collectFiles(
+  root: string,
+  project: ProjectInfo,
+  files: WorkspaceFile[],
+  skipped: Record<string, number>,
+  warnings: Warning[],
+  previous: Map<string, FileStat> | undefined,
+  stats: Map<string, FileStat>,
+) {
   const projectDir = path.join(root, project.folder);
   const walk = (dir: string, role: WorkspaceFile["role"], sourceRoot: string | null) => {
     let entries: fs.Dirent[];
@@ -265,26 +300,46 @@ function collectFiles(root: string, project: ProjectInfo, files: WorkspaceFile[]
         }
         continue;
       }
-      let bytes: Buffer;
+      const packageName = sourceRoot ? packageOf(path.relative(sourceRoot, dir)) : "";
+      let stat: fs.Stats;
       try {
-        bytes = fs.readFileSync(full);
+        stat = fs.statSync(full);
       } catch (error) {
         warnings.push({ path: rel, severity: "error", message: `cannot read file: ${error instanceof Error ? error.message : String(error)}` });
         continue;
       }
-      const decoded = decodeBytes(bytes);
-      if (decoded.lossy) {
+      const known = previous?.get(rel);
+      let info: FileStat;
+      let content: string | undefined;
+      if (known && known.size === stat.size && known.mtimeMs === stat.mtimeMs) {
+        info = known;
+      } else {
+        let bytes: Buffer;
+        try {
+          bytes = fs.readFileSync(full);
+        } catch (error) {
+          warnings.push({ path: rel, severity: "error", message: `cannot read file: ${error instanceof Error ? error.message : String(error)}` });
+          continue;
+        }
+        const decoded = decodeBytes(bytes);
+        content = decoded.text;
+        info = { size: stat.size, mtimeMs: stat.mtimeMs, hash: sha(bytes), encoding: decoded.encoding, lossy: decoded.lossy };
+      }
+      stats.set(rel, info);
+      if (info.lossy) {
         warnings.push({ path: rel, severity: "info", message: "not valid UTF-8 and no declared encoding; read as windows-1252" });
       }
-      const packageName = sourceRoot ? packageOf(path.relative(sourceRoot, dir)) : "";
       files.push({
         path: rel,
         project: project.name,
         packageName,
         role,
-        content: decoded.text,
-        hash: sha(bytes),
-        encoding: decoded.encoding,
+        ...(content !== undefined ? { content } : {}),
+        hash: info.hash,
+        encoding: info.encoding,
+        fullPath: full,
+        size: stat.size,
+        mtimeMs: stat.mtimeMs,
       });
     }
   };

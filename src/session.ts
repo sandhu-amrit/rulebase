@@ -13,7 +13,8 @@ import path from "node:path";
 import { drift, type DriftReport } from "./drift.ts";
 import { buildWorkspace, cacheKey, type BuildResult } from "./indexer.ts";
 import type { KnowledgeBase } from "./kb.ts";
-import type { ParsedFile } from "./link.ts";
+import type { CachedUses, ParsedFile } from "./link.ts";
+import type { FileStat } from "./workspace.ts";
 import { cacheFileFor, Store, summarize } from "./store.ts";
 
 const STAT_INTERVAL_MS = 30_000;
@@ -32,6 +33,8 @@ export class Session {
   readonly store: Store;
   private result: BuildResult | null = null;
   private parsed: ParsedFile[] = [];
+  private fileStats: Map<string, FileStat> | undefined;
+  private readonly useCache = new Map<string, CachedUses>();
   private dirty = true;
   private lastStat = 0;
   private statSignature = "";
@@ -102,12 +105,16 @@ export class Session {
     return (this.result as BuildResult).kb;
   }
 
-  rebuild(): BuildResult {
+  /** `full` re-reads and re-hashes every file instead of trusting unchanged size and mtime. */
+  rebuild(full = false): BuildResult {
     this.dirty = false;
     this.lastStat = Date.now();
     this.statSignature = this.statScan();
-    const result = buildWorkspace(this.root, this.store, this.parsed);
+    const result = buildWorkspace(this.root, this.store, this.parsed, full ? undefined : this.fileStats, this.useCache);
     this.parsed = result.parsed;
+    this.fileStats = result.scan.stats;
+    // File contents are only needed for parsing; don't keep 5,000 file texts alive.
+    for (const file of result.scan.files) delete file.content;
     this.result = result;
     const files = result.scan.files.map((file) => ({ path: file.path, hash: file.hash, parseKey: cacheKey(file) }));
     this.store.record(result.kb, files);
@@ -120,11 +127,16 @@ export class Session {
     return this.result;
   }
 
+  private driftCache: { hash: string; report: DriftReport } | null = null;
+
   drift(): DriftReport {
     const kb = this.kb();
+    if (this.driftCache?.hash === kb.meta.contentHash) return this.driftCache.report;
     const latest = this.store.latest();
     const previous = latest && latest.contentHash === kb.meta.contentHash ? this.store.previous() : latest;
-    return drift(previous ? { summary: previous.summary, createdAt: previous.createdAt } : null, { summary: summarize(kb), createdAt: kb.meta.indexedAt });
+    const report = drift(previous ? { summary: previous.summary, createdAt: previous.createdAt } : null, { summary: summarize(kb), createdAt: kb.meta.indexedAt });
+    this.driftCache = { hash: kb.meta.contentHash, report };
+    return report;
   }
 
   close(): void {

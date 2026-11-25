@@ -164,7 +164,13 @@ export interface TypeEnv {
 }
 
 export class PhraseMatcher {
-  private readonly byAnchor = new Map<string, CompiledPhrase[]>();
+  /**
+   * Phrases are indexed by their first literal word, or by their first two when
+   * those are adjacent ("set credit"). Thousands of setters share "set"; few
+   * share "set credit", so each position tries only a handful of patterns.
+   */
+  private readonly byWord = new Map<string, CompiledPhrase[]>();
+  private readonly byPair = new Map<string, CompiledPhrase[]>();
   readonly compiled: CompiledPhrase[] = [];
 
   constructor(phrases: { phrase: Phrase; items: PatternItem[] }[]) {
@@ -174,10 +180,13 @@ export class PhraseMatcher {
       const compiled: CompiledPhrase = { phrase, items, anchor, literalCount };
       this.compiled.push(compiled);
       if (anchor < 0) continue;
-      const key = (items[anchor] as { lit: string }).lit;
-      const list = this.byAnchor.get(key) ?? [];
+      const first = (items[anchor] as { lit: string }).lit;
+      const next = items[anchor + 1];
+      const map = next && "lit" in next ? this.byPair : this.byWord;
+      const key = next && "lit" in next ? `${first} ${next.lit}` : first;
+      const list = map.get(key) ?? [];
       list.push(compiled);
-      this.byAnchor.set(key, list);
+      map.set(key, list);
     }
   }
 
@@ -187,11 +196,14 @@ export class PhraseMatcher {
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
       if (token.kind !== "word") continue;
-      const candidates = this.byAnchor.get(token.value);
-      if (!candidates) continue;
-      for (const compiled of candidates) {
-        const found = this.tryAt(tokens, i, compiled, env, depth);
-        if (found) raw.push(found);
+      const next = tokens[i + 1];
+      const pair = next?.kind === "word" ? this.byPair.get(`${token.value} ${next.value}`) : undefined;
+      for (const candidates of [this.byWord.get(token.value), pair]) {
+        if (!candidates) continue;
+        for (const compiled of candidates) {
+          const found = this.tryAt(tokens, i, compiled, env, depth);
+          if (found) raw.push(found);
+        }
       }
     }
     return disambiguate(raw);

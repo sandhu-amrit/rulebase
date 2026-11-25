@@ -35,13 +35,17 @@ export interface TableColumn {
   title?: string;
 }
 
+/**
+ * A decision-table cell keeps its values only. The readable text is the column
+ * template filled with them (`renderCell`), computed when asked for: storing it
+ * for every cell of every row doubled the memory of large tables.
+ */
 export interface TableCell {
   columnId: string;
   params: string[];
-  /** Cell text with the column template filled in. */
-  text: string;
+  /** Cell-specific template, when the file overrides the column's. */
+  template?: string;
   enabled: boolean;
-  /** "otherwise" cells and similar have no params. */
   otherwise?: boolean;
 }
 
@@ -50,7 +54,6 @@ export interface TableRow {
   index: number;
   conditions: TableCell[];
   actions: TableCell[];
-  summary: string;
 }
 
 export interface FlowTask {
