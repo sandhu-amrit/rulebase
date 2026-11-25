@@ -17,6 +17,59 @@ A requirement arrives ("decline applicants whose debt-to-income is above 40%"). 
 
 Rulebase does not write rules. Writing rules is phase 2, and it will need the row- and condition-level provenance kept here.
 
+## How it fits together
+
+```mermaid
+flowchart LR
+    dev(["Developer"])
+
+    subgraph host["AI assistant: Copilot or Claude Code"]
+        model["Model"]
+        skill["odm-change-analysis skill<br/>(the procedure)"]
+    end
+
+    subgraph rb["rulebase mcp: a child process over stdio"]
+        direction TB
+        tools["10 read-only tools<br/>src/tools.ts, src/mcp.ts"]
+        kb["Knowledge base<br/>queries, impact, flow paths<br/>src/kb.ts, src/flow.ts"]
+        session["Session<br/>watch, stat scan, rebuild if changed<br/>src/session.ts"]
+        subgraph pipeline["Index pipeline"]
+            direction LR
+            scan["Scan<br/>projects, references,<br/>encodings"]
+            parse["Parse<br/>one file at a time,<br/>pure"]
+            link["Link<br/>BOM + B2X + vocabulary,<br/>BAL matching, graph"]
+            scan --> parse --> link
+        end
+        tools --> kb
+        kb --> session
+        session --> scan
+        link --> kb
+    end
+
+    subgraph disk["On disk"]
+        ws[("Rule Designer workspace<br/>.ruleproject .bom .voc .b2x<br/>.brl .dta .rfl .dop .var")]
+        cache[("SQLite cache, disposable<br/>parses by content hash,<br/>current + previous snapshot")]
+        glossary[("rulebase.yaml,<br/>rulebase.glossary.yaml")]
+    end
+
+    dc[("Decision Center")]
+
+    dev -- "requirement or question" --> model
+    skill -. "guides" .-> model
+    model -- "tool calls" --> tools
+    tools -- "JSON answer + checked footer" --> model
+    model -- "proposal" --> dev
+    dev -- "edits and syncs in Rule Designer" --> ws
+    dc -- "sync" --> ws
+    scan -- "reads" --> ws
+    scan -- "reads" --> glossary
+    parse <-- "reuses unchanged files" --> cache
+```
+
+- **Read-only.** Arrows into the workspace come only from the developer and Decision Center. Rulebase reads, and writes only its own cache (D5, D8, D14).
+- **Fresh on every answer.** Before a tool answers, the session checks for changes and re-parses only files whose content changed. Linking and queries then run in memory (D12, D14, D15).
+- **Facts versus procedure.** The tools return facts, with a `checked` footer saying what was read. The skill tells the assistant how to use them and what to hand back (D2, D13).
+
 ## Decisions
 
 | # | Decision | Why |
