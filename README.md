@@ -12,10 +12,10 @@ Rulebase is read-only: a person reviews the proposal and makes the change in Rul
 
 | I want to… | Read |
 |---|---|
-| Use Rulebase with my assistant on my rule project | [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) |
+| Install Rulebase and use it with my assistant on my rule project | [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) |
 | Look up a tool, a command, a setting, or what an answer means | [docs/REFERENCE.md](docs/REFERENCE.md) |
 | Understand why it works the way it does | [docs/DESIGN.md](docs/DESIGN.md) |
-| Change or improve Rulebase (people and coding agents) | [AGENTS.md](AGENTS.md), then [docs/EXTENDING.md](docs/EXTENDING.md) |
+| Change or improve Rulebase (people and coding agents) | [.github/copilot-instructions.md](.github/copilot-instructions.md), then [docs/EXTENDING.md](docs/EXTENDING.md) |
 
 ## Which files are for which Copilot
 
@@ -24,37 +24,9 @@ There are two different situations. Each one uses its own files:
 | Situation | Files | Where they go |
 |---|---|---|
 | **Using Rulebase:** Copilot (or Claude Code) in *your rule-project repository* answers questions about your rules | `.vscode/mcp.json` (connects the tools) and the skill in `skills/odm-change-analysis/` (the procedure) | In your rule-project repository, as described in [GETTING-STARTED.md](docs/GETTING-STARTED.md) steps 5 and 6 |
-| **Improving Rulebase:** Copilot (or Claude Code) in *this repository* changes Rulebase's code | `AGENTS.md` and `.github/copilot-instructions.md` | Already here; both load automatically. Don't copy them into a rule project. |
+| **Improving Rulebase:** Copilot in *this repository* changes Rulebase's code | `.github/copilot-instructions.md` | Already here, and loaded automatically. Don't copy it into a rule project. |
 
-## Install
-
-Rulebase needs Node.js 22.13 or later, and installs from this repository with `npm install -g`. The steps, from install to your first question, are in [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md).
-
----|---|
-| Use Rulebase with my assistant on my rule project | [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) |
-| Look up a tool, a command, a setting, or what an answer means | [docs/REFERENCE.md](docs/REFERENCE.md) |
-| Understand why it works the way it does | [docs/DESIGN.md](docs/DESIGN.md) |
-| Change or improve Rulebase (people and coding agents) | [AGENTS.md](AGENTS.md), then [docs/EXTENDING.md](docs/EXTENDING.md) |
-
-## Which files are for which Copilot
-
-There are two different situations. Each one uses its own files:
-
-| Situation | Files | Where they go |
-|---|---|---|
-| **Using Rulebase:** Copilot (or Claude Code) in *your rule-project repository* answers questions about your rules | `.vscode/mcp.json` (connects the tools) and the skill in `skills/odm-change-analysis/` (the procedure) | In your rule-project repository, as described in [GETTING-STARTED.md](docs/GETTING-STARTED.md) steps 5 and 6 |
-| **Improving Rulebase:** Copilot (or Claude Code) in *this repository* changes Rulebase's code | `AGENTS.md` and `.github/copilot-instructions.md` | Already here; both load automatically. Don't copy them into a rule project. |
-
-## Install
-
-Requires Node.js 22.13 or later. Replace `<owner>/rulebase` with your organization's copy of this repository:
-
-```powershell
-npm install -g github:<owner>/rulebase
-rulebase --version
-```
-
-Then follow [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md).
+Rulebase needs Node.js 22.13 or later.
 
 ---
 

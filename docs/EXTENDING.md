@@ -1,6 +1,6 @@
 # Extending Rulebase
 
-Recipes for the common kinds of improvement. Each one ends when the **Done means** checklist in `AGENTS.md` is met. The invariants in `AGENTS.md` apply throughout.
+Recipes for the common kinds of improvement. Each one ends when the **Done means** checklist in `.github/copilot-instructions.md` is met. The invariants there apply throughout.
 
 ## Which recipe
 
@@ -22,7 +22,7 @@ A **confident wrong answer** (zero matches, the wrong member, a rule labelled "d
 2. **Find the exact construct.** `rulebase query <ws> get_artifact '{"id":"…"}'` shows a rule's parts and every use with `resolved`. `rulebase check <ws>` lists every error with its path and line. To see which uses are untyped, iterate `kb.model.uses` (as in `test/review.test.ts`).
 3. **Decide whose defect it is.** A `.voc` entry for a member the BOM lacks, or a ruleflow task selecting a deleted rule, is a defect in the workspace: Rulebase reporting it is correct. Rulebase misreading valid ODM is ours.
 4. **Write the smallest hand-made case** that shows it: a unit test (`test/bom.test.ts`, `test/bal.test.ts`, `test/voc.test.ts`) for a parser construct, or a file in a fixture workspace (`fixtures/classic-workspace`, `fixtures/i18n-workspace`) with an assertion in that fixture's test file. Watch it fail.
-5. **Fix it in the layer that owns it** (the table in `AGENTS.md`), and bump `PARSER_VERSION` if parse output changed.
+5. **Fix it in the layer that owns it** (the "Where each change goes" table in `.github/copilot-instructions.md`), and bump `PARSER_VERSION` if parse output changed.
 6. **Re-run the public corpus** if you have it (see [Corpus](#corpus)) and confirm nothing else moved.
 
 ## 2. New syntax in a known file type
