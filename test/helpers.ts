@@ -26,3 +26,4 @@ export function tempDir(prefix = "rulebase-test-"): string {
 export function copyTree(from: string, to: string): void {
   fs.cpSync(from, to, { recursive: true });
 }
+export const CLASSIC = path.join(ROOT, "fixtures", "classic-workspace");

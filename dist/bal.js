@@ -157,7 +157,9 @@ export class PhraseMatcher {
         if (anchor > 0) {
             if (anchor > 1 || !("slot" in items[0]))
                 return null;
-            const slot = backwardNounPhrase(tokens, at - 1);
+            // `'the customer'.isOlderThan(30)`: a dot may sit between the subject and the phrase.
+            const before = tokens[at - 1]?.kind === "punct" && tokens[at - 1].value === "." ? at - 2 : at - 1;
+            const slot = backwardNounPhrase(tokens, before);
             if (!slot)
                 return null;
             slots[items[0].slot] = slot;
@@ -195,11 +197,15 @@ export class PhraseMatcher {
                 pos = end;
             }
             else {
-                const slot = forwardNounPhrase(tokens, pos);
+                // `isOlderThan({0})`: skip an opening bracket before a trailing slot, and its closing one after.
+                const open = tokens[pos]?.kind === "punct" && tokens[pos].value === "(";
+                const slot = forwardNounPhrase(tokens, open ? pos + 1 : pos);
                 if (!slot)
                     return null;
                 slots[item.slot] = slot;
                 pos = slot.to;
+                if (open && tokens[pos]?.kind === "punct" && tokens[pos].value === ")")
+                    pos++;
             }
         }
         for (const slot of slots)
@@ -277,7 +283,11 @@ function backwardNounPhrase(tokens, pos) {
     return { from: start, to: pos + 1, text: spanText(tokens, start, pos + 1) };
 }
 function typeSlot(slot, tokens, env, matcher, depth) {
-    const span = tokens.slice(slot.from, slot.to);
+    let span = tokens.slice(slot.from, slot.to);
+    // `(the location of 'the merchant')`: brackets around an argument don't change its type.
+    while (span.length > 2 && span[0].kind === "punct" && span[0].value === "(" && span[span.length - 1].kind === "punct" && span[span.length - 1].value === ")") {
+        span = span.slice(1, -1);
+    }
     if (span.length === 1) {
         const token = span[0];
         if (token.kind === "var") {
@@ -301,7 +311,8 @@ function typeSlot(slot, tokens, env, matcher, depth) {
     }
     const words = span.filter((token) => token.kind === "word").map((token) => token.value);
     if (words.length === span.length) {
-        const label = words.join(" ");
+        // `this ilr project element`, `each item`: a demonstrative in front of a concept label
+        const label = words.join(" ").replace(/^(this|each|that|every) /, "");
         const concept = env.concepts.get(label);
         if (concept) {
             slot.type = concept;

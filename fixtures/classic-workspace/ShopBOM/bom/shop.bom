@@ -1,0 +1,43 @@
+#loadGetterSetterAsProperties
+property uuid "shop-bom"
+package shop;
+
+public class Customer
+        extends java.io.Serializable
+{
+    static public final class Tier
+            extends java.lang.Enum
+    {
+        domain {static GOLD, static SILVER}
+        public static final readonly shop.Customer.Tier GOLD;
+        public static final readonly shop.Customer.Tier SILVER;
+    }
+    public string name;
+    public int age;
+    public string country;
+    public shop.Customer.Tier tier;
+    public writeonly string password;
+    public boolean isOlderThan(int years);
+    public boolean livesIn(string country);
+    public static java.util.List lookup(string key,
+        java.util.List all domain 0,* class shop.Customer) domain 0,* class shop.Customer;
+    public static operator java.util.Date(shop.Customer c);
+    Customer(string name);
+}
+
+public class Cart
+{
+    public double total;
+    public java.util.List items domain 0,* class shop.Item;
+}
+
+public class Item
+{
+    public string kind;
+    public double price;
+}
+
+public class Geo
+{
+    public static double distanceKm(shop.Customer from, shop.Customer to);
+}

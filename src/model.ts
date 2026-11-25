@@ -245,4 +245,6 @@ export interface ProjectInfo {
   sourceFolders: string[];
   bomFolders: string[];
   uuid?: string;
+  /** Classic rule projects declare ruleset parameters in the .ruleproject instead of a .var file. */
+  parameters?: { name: string; type: string; verbalization: string; direction?: string }[];
 }

@@ -113,3 +113,60 @@ test("type categories", () => {
   assert.equal(typeCategory("java.util.Collection"), "collection");
   assert.equal(typeCategory("com.acme.Loan"), "object");
 });
+
+test("real-world syntax: nested classes, body domains, parameter domains, flags, operators", () => {
+  const bom = parseBom(
+    `#loadGetterSetterAsProperties
+property origin "xom:/P/xom"
+package org.sample;
+
+public class Contributor
+        extends java.io.Serializable
+{
+    static public final class Role
+            extends java.lang.Enum
+    {
+        domain {static Author, static Approver}
+        public static final readonly org.sample.Contributor.Role Approver;
+        public static final readonly org.sample.Contributor.Role Author;
+    }
+    public string fullname;
+    public writeonly org.xml.sax.Locator documentLocator;
+    public abstract string @package;
+    public static java.util.List find(string arg1,
+        java.util.List arg2 domain 0,* class org.sample.Contributor) domain 0,* class org.sample.Contributor;
+    public static operator java.util.Date(org.sample.Contributor c);
+    Contributor(string name);
+}
+
+class Year
+    #valueType
+    property alias "integer"
+{
+    public int value;
+}
+`,
+    { project: "P", path: "bom/x.bom" },
+    "x",
+  );
+  assert.deepEqual(bom.warnings, []);
+  assert.equal(bom.properties["#loadGetterSetterAsProperties"], "true");
+  assert.deepEqual(bom.classes.map((klass) => klass.fqn), ["org.sample.Contributor", "org.sample.Contributor.Role", "org.sample.Year"]);
+  assert.deepEqual(bom.classes[1].domain, ["Author", "Approver"]);
+  assert.equal(bom.classes[1].packageName, "org.sample");
+  assert.equal(bom.classes[2].properties["#valueType"], "true");
+  const ids = bom.members.map((member) => member.id);
+  for (const id of [
+    "org.sample.Contributor.Role.Approver",
+    "org.sample.Contributor.Role.Author",
+    "org.sample.Contributor.fullname",
+    "org.sample.Contributor.documentLocator",
+    "org.sample.Contributor.package",
+    "org.sample.Contributor.find(string,java.util.List)",
+    "org.sample.Contributor.operator java.util.Date(org.sample.Contributor)",
+    "org.sample.Contributor.Contributor(string)",
+    "org.sample.Year.value",
+  ]) {
+    assert.ok(ids.includes(id), `${id} in ${ids.join(", ")}`);
+  }
+});

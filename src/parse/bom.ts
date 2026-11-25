@@ -30,7 +30,7 @@ export interface ParsedBom {
 }
 
 const CLASS_MODIFIERS = new Set(["public", "protected", "private", "abstract", "final", "static", "strictfp"]);
-const MEMBER_MODIFIERS = new Set(["public", "protected", "private", "static", "final", "readonly", "abstract", "native", "synchronized", "transient", "volatile", "deprecated"]);
+const MEMBER_MODIFIERS = new Set(["public", "protected", "private", "static", "final", "readonly", "writeonly", "abstract", "native", "synchronized", "transient", "volatile", "deprecated"]);
 
 interface Statement {
   text: string;
@@ -47,51 +47,58 @@ export function parseBom(content: string, provenance: Provenance, bomEntry: stri
   const members: BomMember[] = [];
   let currentPackage = "";
 
+  const addClass = (statement: Statement, scope: string, outer?: BomClass) => {
+    const text = statement.text.trim();
+    const parsed = parseClassHeader(text, scope);
+    if (!parsed) {
+      warnings.push({ path: provenance.path, severity: "error", message: `line ${statement.line}: could not read class header '${text.slice(0, 80)}'` });
+      return;
+    }
+    // A nested class keeps its outer class in its name (a.b.Outer.Inner) and the outer's package.
+    const klass: BomClass = { ...parsed, ...(outer ? { packageName: outer.packageName } : {}), virtual: false, provenance: { ...provenance }, bomEntry };
+    klass.documentation = documentationOf(klass.properties);
+    classes.push(klass);
+    for (const memberStatement of statement.body ?? []) {
+      const memberText = memberStatement.text.trim();
+      if (!memberText) continue;
+      if (memberStatement.body) {
+        addClass(memberStatement, klass.fqn, klass);
+        continue;
+      }
+      const member = parseMember(memberText, klass);
+      if (!member) {
+        warnings.push({ path: provenance.path, severity: "error", message: `line ${memberStatement.line}: could not read member of ${klass.fqn}: '${memberText.slice(0, 80)}'` });
+        continue;
+      }
+      if (typeof member === "object" && "domainOnly" in member) {
+        // `domain {static A, static B}` written inside the class body
+        klass.domain = staticDomainValues(member.domainOnly) ?? klass.domain;
+        continue;
+      }
+      member.provenance = { ...provenance };
+      members.push(member);
+    }
+  };
+
   for (const statement of statements) {
     const text = statement.text.trim();
     if (!text) continue;
     if (statement.body) {
-      const parsed = parseClassHeader(text, currentPackage);
-      if (!parsed) {
-        warnings.push({
-          path: provenance.path,
-          severity: "error",
-          message: `line ${statement.line}: could not read class header '${text.slice(0, 80)}'`,
-        });
-        continue;
-      }
-      const klass: BomClass = {
-        ...parsed,
-        virtual: false,
-        provenance: { ...provenance },
-        bomEntry,
-      };
-      klass.documentation = documentationOf(klass.properties);
-      classes.push(klass);
-      for (const memberStatement of statement.body) {
-        const memberText = memberStatement.text.trim();
-        if (!memberText) continue;
-        const member = parseMember(memberText, klass);
-        if (!member) {
-          warnings.push({
-            path: provenance.path,
-            severity: "error",
-            message: `line ${memberStatement.line}: could not read member of ${klass.fqn}: '${memberText.slice(0, 80)}'`,
-          });
-          continue;
-        }
-        if (member === "domain") continue;
-        member.provenance = { ...provenance };
-        members.push(member);
-      }
+      addClass(statement, currentPackage);
       continue;
     }
-    const pkg = /^package\s+([\w.$]+)$/.exec(text);
+    if (/^#[\w.$]+(\s+property\s|$)/.test(text)) {
+      // a top-level flag line (`#loadGetterSetterAsProperties`), possibly glued to the next property line
+      const { rest, properties: flags } = extractClauses(text);
+      Object.assign(properties, flags);
+      if (!rest) continue;
+    }
+    const pkg = /^package\s+([\w.$]+)$/.exec(text.replace(/^(#[\w.$]+\s*)+/, ""));
     if (pkg) {
       currentPackage = pkg[1];
       continue;
     }
-    const prop = /^property\s+("(?:[^"\\]|\\.)*"|[\w.$-]+)\s+("(?:[^"\\]|\\.)*"|\S+)$/.exec(text);
+    const prop = /^property\s+("(?:[^"\\]|\\.)*"|[\w.$-]+)\s+("(?:[^"\\]|\\.)*"|\S+)$/.exec(text.replace(/^(#[\w.$]+\s*)+/, ""));
     if (prop) {
       properties[unquote(prop[1])] = unquote(prop[2]);
       continue;
@@ -152,112 +159,86 @@ function endOfString(text: string, start: number): number {
 
 /**
  * Split into statements. Top level: `property ...` lines (newline-terminated),
- * `package x;`, and class headers with a `{ ... }` body. Inside a body,
- * members end at `;`.
+ * `package x;`, and class headers with a `{ ... }` body. Inside a body, members
+ * end at `;`, a body-level `domain { ... }` ends at its closing brace, and a
+ * nested class has its own body.
  */
 function scan(content: string, path: string, warnings: Warning[]): Statement[] {
-  const out: Statement[] = [];
-  let i = 0;
-  let line = 1;
-  let buffer = "";
-  let bufferLine = 1;
-  let body: Statement[] | null = null;
-  let memberBuffer = "";
-  let memberLine = 1;
+  return scanBlock(content, { i: 0, line: 1 }, path, warnings, true);
+}
 
-  const flushTop = () => {
+function scanBlock(content: string, st: { i: number; line: number }, path: string, warnings: Warning[], topLevel: boolean): Statement[] {
+  const out: Statement[] = [];
+  let buffer = "";
+  let bufferLine = st.line;
+  const flush = () => {
     if (buffer.trim()) out.push({ text: collapse(buffer), line: bufferLine });
     buffer = "";
   };
-
-  while (i < content.length) {
-    const ch = content[i];
-    if (ch === "\n") line++;
+  while (st.i < content.length) {
+    const ch = content[st.i];
+    if (!buffer.trim()) bufferLine = st.line;
     if (ch === '"') {
-      const end = endOfString(content, i);
-      const chunk = content.slice(i, end);
-      if (body) memberBuffer += chunk;
-      else buffer += chunk;
-      i = end;
+      const end = endOfString(content, st.i);
+      const chunk = content.slice(st.i, end);
+      buffer += chunk;
+      st.line += countNewlines(chunk);
+      st.i = end;
       continue;
     }
-    if (body === null) {
-      if (!buffer.trim()) bufferLine = line;
-      if (ch === "\n" && /^\s*property\s/.test(buffer) && !/\bclass\b|\binterface\b/.test(buffer)) {
-        flushTop();
-        i++;
+    if (ch === "\n") {
+      st.line++;
+      // Top-level `property ...` and `#flag` lines end at the newline (they have no `;`).
+      if (topLevel && /^\s*(property\s|#[\w.$]+\s*$)/.test(buffer) && !/\b(class|interface)\b/.test(buffer)) {
+        flush();
+        st.i++;
         continue;
       }
-      if (ch === ";") {
-        flushTop();
-        i++;
-        continue;
-      }
-      if (ch === "{") {
-        if (/\bdomain\s*$/.test(buffer)) {
-          const end = matchingBrace(content, i);
-          buffer += content.slice(i, end);
-          line += countNewlines(content.slice(i, end));
-          i = end;
-          continue;
-        }
-        body = [];
-        memberBuffer = "";
-        memberLine = line;
-        i++;
-        continue;
-      }
-      if (ch === "}") {
-        warnings.push({ path, severity: "error", message: `line ${line}: unexpected '}'` });
-        i++;
-        continue;
-      }
-      buffer += ch;
-      i++;
-      continue;
-    }
-    // inside a class body
-    if (!memberBuffer.trim()) memberLine = line;
-    if (ch === "{") {
-      if (/\bdomain\s*$/.test(memberBuffer)) {
-        const end = matchingBrace(content, i);
-        memberBuffer += content.slice(i, end);
-        line += countNewlines(content.slice(i, end));
-        i = end;
-        continue;
-      }
-      warnings.push({ path, severity: "error", message: `line ${line}: nested '{' in class body is not supported` });
-      const end = matchingBrace(content, i);
-      line += countNewlines(content.slice(i, end));
-      i = end;
-      continue;
     }
     if (ch === ";") {
-      body.push({ text: collapse(memberBuffer), line: memberLine });
-      memberBuffer = "";
-      i++;
+      flush();
+      st.i++;
+      continue;
+    }
+    if (ch === "{") {
+      if (/\bdomain\s*$/.test(buffer)) {
+        const end = matchingBrace(content, st.i);
+        const chunk = content.slice(st.i, end);
+        buffer += chunk;
+        st.line += countNewlines(chunk);
+        st.i = end;
+        if (!topLevel && /^\s*domain\s*\{/.test(buffer)) flush();
+        continue;
+      }
+      if (/\b(class|interface)\b/.test(buffer)) {
+        const header = buffer;
+        const line = bufferLine;
+        buffer = "";
+        st.i++;
+        const body = scanBlock(content, st, path, warnings, false);
+        out.push({ text: collapse(header), body, line });
+        continue;
+      }
+      warnings.push({ path, severity: "error", message: `line ${st.line}: unexpected '{'` });
+      const end = matchingBrace(content, st.i);
+      st.line += countNewlines(content.slice(st.i, end));
+      st.i = end;
       continue;
     }
     if (ch === "}") {
-      if (memberBuffer.trim()) {
-        // A trailing `domain {..}` or property without `;` still belongs to the class.
-        body.push({ text: collapse(memberBuffer), line: memberLine });
+      st.i++;
+      if (topLevel) {
+        warnings.push({ path, severity: "error", message: `line ${st.line}: unexpected '}'` });
+        continue;
       }
-      out.push({ text: collapse(buffer), body, line: bufferLine });
-      buffer = "";
-      body = null;
-      i++;
-      continue;
+      flush();
+      return out;
     }
-    memberBuffer += ch;
-    i++;
+    buffer += ch;
+    st.i++;
   }
-  if (body) {
-    warnings.push({ path, severity: "error", message: `class body starting near line ${bufferLine} is not closed` });
-    out.push({ text: collapse(buffer), body, line: bufferLine });
-  } else {
-    flushTop();
-  }
+  if (!topLevel) warnings.push({ path, severity: "error", message: `class body near line ${bufferLine} is not closed` });
+  flush();
   return out;
 }
 
@@ -318,7 +299,11 @@ function unquote(value: string): string {
 /** Pull `property "k" "v"` clauses and a `domain ...` clause off a header or member. */
 function extractClauses(text: string): { rest: string; properties: Record<string, string>; domain?: string } {
   const properties: Record<string, string> = {};
-  let rest = text;
+  // `#valueType`, `#vocabularyClass`, `#loadGetterSetterAsProperties`: flags, kept as properties.
+  let rest = text.replace(/(^|\s)#([\w.$]+)/g, (_, space: string, flag: string) => {
+    properties[`#${flag}`] = "true";
+    return space;
+  });
   const propRe = /\bproperty\s+("(?:[^"\\]|\\.)*"|[\w.$-]+)\s+("(?:[^"\\]|\\.)*"|[^\s"]+)/g;
   rest = rest.replace(propRe, (_, key: string, value: string) => {
     properties[unquote(key)] = unquote(value);
@@ -381,9 +366,20 @@ function staticDomainValues(domain: string): string[] | undefined {
   return values.length ? values : undefined;
 }
 
-function parseMember(text: string, klass: Pick<BomClass, "fqn" | "name">): BomMember | "domain" | null {
-  const { rest, properties, domain } = extractClauses(text);
-  if (!rest && domain !== undefined) return "domain";
+/** Remove `domain ...` clauses on parameters: `(java.util.List arg domain 0,* class X)`. */
+function stripParameterDomains(text: string): string {
+  const open = text.indexOf("(");
+  const close = text.lastIndexOf(")");
+  if (open < 0 || close < open) return text;
+  const params = text
+    .slice(open + 1, close)
+    .replace(/\s+domain\s+(\{[^}]*\}|\d+\s*,\s*(\*|\d+)(\s+class\s+[\w.$]+)?|\[[^\]]*\]|[^,)]+)/g, "");
+  return text.slice(0, open + 1) + params + text.slice(close);
+}
+
+function parseMember(text: string, klass: Pick<BomClass, "fqn" | "name">): BomMember | { domainOnly: string } | null {
+  const { rest, properties, domain } = extractClauses(stripParameterDomains(text));
+  if (!rest && domain !== undefined) return { domainOnly: domain };
   const paren = rest.indexOf("(");
   const head = paren >= 0 ? rest.slice(0, paren).trim() : rest;
   const params = paren >= 0 ? rest.slice(paren + 1, rest.lastIndexOf(")")).trim() : null;
@@ -396,7 +392,12 @@ function parseMember(text: string, klass: Pick<BomClass, "fqn" | "name">): BomMe
   let type: string;
   let name: string;
   let kind: BomMember["kind"];
-  if (params !== null && words.length === 1 && (words[0] === klass.name || words[0] === klass.fqn)) {
+  if (params !== null && words.length === 2 && words[0] === "operator") {
+    // `public static operator java.util.Date(Date d)`: a conversion operator, named after its target type
+    kind = "method";
+    type = words[1];
+    name = "operator";
+  } else if (params !== null && words.length === 1 && (words[0] === klass.name || words[0] === klass.fqn)) {
     kind = "constructor";
     type = klass.fqn;
     name = klass.name;
@@ -407,11 +408,13 @@ function parseMember(text: string, klass: Pick<BomClass, "fqn" | "name">): BomMe
   } else {
     return null;
   }
+  // `@package`: a member named after a keyword is escaped with `@`.
+  name = name.replace(/^@/, "");
   if (!/^[\w$]+$/.test(name)) return null;
   const parsedParams = params ? splitParams(params) : [];
   if (parsedParams === null) return null;
   const signature = parsedParams.map((item) => item.type).join(",");
-  const id = kind === "attribute" ? `${klass.fqn}.${name}` : `${klass.fqn}.${name}(${signature})`;
+  const id = kind === "attribute" ? `${klass.fqn}.${name}` : name === "operator" ? `${klass.fqn}.operator ${type}(${signature})` : `${klass.fqn}.${name}(${signature})`;
   return {
     id,
     owner: klass.fqn,

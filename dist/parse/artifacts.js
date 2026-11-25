@@ -292,12 +292,30 @@ function ruleflow(ctx) {
         for (const raw of Array.isArray(value) ? value : [value])
             tasks.push(flowTask(kind, raw, ctx));
     }
+    // NodeList holds TaskNodes (pointing at tasks) and structural nodes (ForkNode, JoinNode, BranchNode).
     const nodeToTask = new Map();
-    for (const node of children(child(body, "NodeList"), "TaskNode")) {
-        const id = attr(node, "Identifier");
-        const task = attr(node, "Task");
-        if (id && task)
-            nodeToTask.set(id, task);
+    const structural = { ForkNode: "fork", JoinNode: "join", BranchNode: "branch" };
+    for (const [key, value] of Object.entries(child(body, "NodeList") ?? {})) {
+        if (key.startsWith("@") || key.startsWith("#"))
+            continue;
+        const local = key.slice(key.lastIndexOf(":") + 1);
+        for (const node of Array.isArray(value) ? value : [value]) {
+            const id = attr(node, "Identifier");
+            if (!id)
+                continue;
+            if (local === "TaskNode") {
+                const task = attr(node, "Task");
+                if (task)
+                    nodeToTask.set(id, task);
+            }
+            else if (structural[local]) {
+                nodeToTask.set(id, id);
+                tasks.push({ id, kind: structural[local], packages: [], rules: [] });
+            }
+            else {
+                ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: `ruleflow node type <${local}> is not understood` });
+            }
+        }
     }
     const transitions = children(child(body, "TransitionList"), "Transition").map((item) => {
         const source = attr(item, "Source") ?? "";
@@ -365,9 +383,8 @@ function operation(ctx) {
             variableSet: attr(item, "variableSetName"),
         };
     });
-    const usesRuleflow = attr(ctx.node, "usingRuleflow") !== "false";
-    if (usesRuleflow && !href && !attr(ctx.node, "ruleflowName")) {
-        ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: "decision operation names no ruleflow" });
+    if (!href && !attr(ctx.node, "ruleflowName")) {
+        ctx.warnings.push({ path: ctx.provenance.path, severity: "info", message: "decision operation has no ruleflow: it runs every rule in the ruleset" });
     }
     return {
         ...artifact,

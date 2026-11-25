@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ilog.rules.studio.model.brl:ActionRule xmlns:ilog.rules.studio.model.brl="http://ilog.rules.studio/model/brl.ecore">
+  <name>seniors</name>
+  <uuid>r-2</uuid>
+  <locale>en_US</locale>
+  <definition><![CDATA[if
+    'the customer'.isOlderThan(65)
+    and 'the customer' lives in "FR"
+then
+    set the tier of 'the customer' to Gold ;]]></definition>
+</ilog.rules.studio.model.brl:ActionRule>

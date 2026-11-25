@@ -13,7 +13,7 @@ import { portablePath } from "./text.ts";
 
 /** Extensions Rulebase reads. Anything else inside a rule project's model folders is reported. */
 export const INDEXED_EXTENSIONS = new Set([
-  ".brl", ".dta", ".dtr", ".trl", ".fct", ".rfl", ".dop", ".var", ".rulepackage", ".bom", ".voc", ".b2x",
+  ".brl", ".dta", ".dtr", ".trl", ".fct", ".rfl", ".dop", ".var", ".rulepackage", ".bom", ".voc", ".b2x", ".b2xa",
 ]);
 
 /** Known ODM files that are deliberately not indexed; counted in the footer, not warned per file. */
@@ -103,7 +103,7 @@ export function sha(value: string | Uint8Array): string {
 }
 
 /** Find `.ruleproject` files, without descending into a project once found. */
-function findProjectFolders(root: string): string[] {
+function findProjectFolders(root: string, maxDepth = 4): string[] {
   const found: string[] = [];
   const walk = (dir: string, depth: number) => {
     let entries: fs.Dirent[];
@@ -116,7 +116,7 @@ function findProjectFolders(root: string): string[] {
       found.push(dir);
       return;
     }
-    if (depth >= 4) return;
+    if (depth >= maxDepth) return;
     for (const entry of entries) {
       if (entry.isDirectory() && !SKIP_DIRS.has(entry.name)) walk(path.join(dir, entry.name), depth + 1);
     }
@@ -172,6 +172,14 @@ function readProject(root: string, folder: string, warnings: Warning[]): Project
   }
   const name = scalar(node, "name") ?? eclipseName ?? path.basename(folder);
   references.delete(name);
+  const parameters = children(node, "parameters")
+    .map((item) => ({
+      name: attr(item, "name") ?? "",
+      type: attr(item, "type") ?? "",
+      verbalization: attr(item, "verbalization") ?? attr(item, "name") ?? "",
+      ...(attr(item, "direction") ? { direction: attr(item, "direction") } : {}),
+    }))
+    .filter((item) => item.name);
   return {
     name,
     folder: rel,
@@ -180,16 +188,25 @@ function readProject(root: string, folder: string, warnings: Warning[]): Project
     sourceFolders: sourceFolders.length ? sourceFolders : ["rules"],
     bomFolders: bomFolders.length ? bomFolders : ["bom"],
     uuid: scalar(node, "uuid"),
+    ...(parameters.length ? { parameters } : {}),
   };
 }
 
 export function scanWorkspace(rootInput: string, options: ScanOptions = {}): WorkspaceScan {
-  const root = path.resolve(rootInput);
+  let root = path.resolve(rootInput);
   if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
     throw new Error(`Workspace folder not found: ${root}`);
   }
+  // Pointing at a project folder means "this project is the decision service";
+  // the workspace is the folder that holds it and its sibling projects.
+  let chosenFolder: string | undefined;
+  if (fs.existsSync(path.join(root, ".ruleproject")) && !fs.existsSync(path.join(root, "rulebase.yaml"))) {
+    chosenFolder = path.basename(root);
+    root = path.dirname(root);
+  }
   const { config, hash: configHash, warnings } = loadConfig(root);
-  const all = findProjectFolders(root)
+  // In project-folder mode only direct siblings can be referenced projects.
+  const all = findProjectFolders(root, chosenFolder ? 1 : 4)
     .map((folder) => readProject(root, folder, warnings))
     .filter((item): item is ProjectInfo => Boolean(item));
   if (!all.length) throw new Error(`No Rule Designer projects (.ruleproject) found under ${root}`);
@@ -205,21 +222,35 @@ export function scanWorkspace(rootInput: string, options: ScanOptions = {}): Wor
 
   const services = all.filter((project) => project.isDecisionService);
   let service: ProjectInfo | undefined;
-  if (config.decisionService) {
+  const chosen = chosenFolder ? all.find((project) => project.folder === chosenFolder) : undefined;
+  if (chosen) {
+    service = chosen;
+    if (!chosen.isDecisionService) {
+      warnings.push({ path: `${chosen.folder}/.ruleproject`, severity: "info", message: "project is not marked as a decision service; indexing it as the main project" });
+    }
+  } else if (config.decisionService) {
     service = byName.get(config.decisionService);
     if (!service) throw new Error(`rulebase.yaml names decision service '${config.decisionService}', which is not in the workspace`);
   } else if (services.length === 1) {
     service = services[0];
   } else if (services.length > 1) {
     throw new Error(
-      `The workspace has ${services.length} decision services (${services.map((item) => item.name).join(", ")}). ` +
-        `Set 'decisionService:' in rulebase.yaml to choose one.`,
+      `The workspace has ${services.length} decision services: ${services.map((item) => item.name).join(", ")}. ` +
+        `Point rulebase at one of their folders (e.g. ${path.join(root, services[0].folder)}), or set 'decisionService:' in rulebase.yaml.`,
     );
-  } else if (all.length === 1) {
-    service = all[0];
-    warnings.push({ path: `${service.folder}/.ruleproject`, severity: "info", message: "project is not marked as a decision service; indexing it as one" });
   } else {
-    throw new Error("No project in the workspace is marked as a decision service. Set 'decisionService:' in rulebase.yaml.");
+    // Classic rule projects have no decision-service flag. The main project is the one no other project references.
+    const referenced = new Set(all.flatMap((project) => project.references));
+    const tops = all.filter((project) => !referenced.has(project.name));
+    if (tops.length === 1) {
+      service = tops[0];
+      warnings.push({ path: `${service.folder}/.ruleproject`, severity: "info", message: "no project is marked as a decision service; indexing the only top-level project" });
+    } else {
+      throw new Error(
+        `No project is marked as a decision service, and ${tops.length} projects are not referenced by any other (${tops.map((item) => item.name).join(", ")}). ` +
+          `Point rulebase at the main project's folder, or set 'decisionService:' in rulebase.yaml.`,
+      );
+    }
   }
 
   // The decision service plus everything it references, transitively. References to
@@ -247,7 +278,7 @@ export function scanWorkspace(rootInput: string, options: ScanOptions = {}): Wor
     included.delete(name);
   }
   for (const project of all) {
-    if (!included.has(project.name)) {
+    if (!included.has(project.name) && !chosenFolder) {
       warnings.push({ path: `${project.folder}/.ruleproject`, severity: "info", message: `rule project '${project.name}' is not referenced by '${service.name}' and is not indexed` });
     }
   }

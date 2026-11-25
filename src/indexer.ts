@@ -14,7 +14,7 @@ import { parseVoc } from "./parse/voc.ts";
 import { fileContent, scanWorkspace, sha, type FileStat, type WorkspaceFile, type WorkspaceScan } from "./workspace.ts";
 
 /** Bump when a parser changes output shape, so cached parses are not reused. */
-export const PARSER_VERSION = "3";
+export const PARSER_VERSION = "7";
 
 export interface ParseCache {
   get(key: string): ParsedFile | undefined;
@@ -39,7 +39,7 @@ export function parseFile(file: WorkspaceFile): ParsedFile {
     const voc = parseVoc(content, provenance);
     return { ...base, kind: "voc", voc, warnings: voc.warnings };
   }
-  if (ext === ".b2x") {
+  if (ext === ".b2x" || ext === ".b2xa") {
     const b2x = parseB2x(content, provenance);
     return { ...base, kind: "b2x", b2x, warnings: b2x.warnings };
   }

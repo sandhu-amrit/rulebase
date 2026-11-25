@@ -1,5 +1,5 @@
 import { asArray, child, children, rootElement, textOf, attr, parseXml } from "./xml.js";
-const KNOWN_CLASS_CHILDREN = new Set(["businessName", "executionName", "attribute", "method", "constructor", "import", "tester", "extender"]);
+const KNOWN_CLASS_CHILDREN = new Set(["businessName", "executionName", "extenderName", "attribute", "method", "constructor", "import", "tester", "extender"]);
 export function parseB2x(content, provenance) {
     const warnings = [];
     const classes = [];
@@ -29,7 +29,14 @@ export function parseB2x(content, provenance) {
         };
         for (const kind of ["attribute", "method", "constructor"]) {
             for (const memberNode of children(node, kind)) {
-                const name = textOf(child(memberNode, "name")).trim() || (kind === "constructor" ? businessName.split(".").pop() ?? "" : "");
+                const simple = businessName.split(".").pop() ?? businessName;
+                let name = textOf(child(memberNode, "name")).trim() || (kind === "constructor" ? simple : "");
+                // `.b2xa` writes constructors as <method> named after the class (often fully qualified).
+                let memberKind = kind;
+                if (kind === "method" && (name === businessName || name === simple)) {
+                    memberKind = "constructor";
+                    name = simple;
+                }
                 const paramTypes = children(memberNode, "parameter").map((param) => attr(param, "type") ?? textOf(param).trim());
                 const parts = [];
                 for (const label of ["getter", "setter", "body"]) {
@@ -37,9 +44,12 @@ export function parseB2x(content, provenance) {
                     if (text)
                         parts.push(`${label}: ${text}`);
                 }
-                klass.members.push({ name, kind, paramTypes, implementation: parts.join("\n") });
+                klass.members.push({ name, kind: memberKind, paramTypes, implementation: parts.join("\n") });
             }
         }
+        const extender = textOf(child(node, "extenderName")).trim();
+        if (extender)
+            klass.extender = extender;
         const extra = ["import", "tester", "extender"]
             .map((label) => textOf(child(node, label)).trim())
             .filter(Boolean)

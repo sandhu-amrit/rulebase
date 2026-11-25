@@ -240,10 +240,12 @@ export interface AnonymizeResult {
 }
 
 export function anonymizeWorkspace(source: string, out: string): AnonymizeResult {
-  const root = path.resolve(source);
+  const input = path.resolve(source);
   const target = path.resolve(out);
   if (fs.existsSync(target) && fs.readdirSync(target).length) throw new Error(`Output folder is not empty: ${target}`);
-  const scan = scanWorkspace(root);
+  const scan = scanWorkspace(input);
+  // When pointed at a project folder, the workspace is its parent; paths are relative to that.
+  const root = scan.root;
   const anonymizer = new Anonymizer();
   let files = 0;
   const projectFolders = new Set(scan.projects.map((project) => project.folder));
@@ -295,10 +297,11 @@ export function anonymizeWorkspace(source: string, out: string): AnonymizeResult
     write("rulebase.glossary.yaml", text, "utf-8");
   }
 
-  const original = buildWorkspace(root).kb;
-  const anonymized = buildWorkspace(target).kb;
+  const original = buildWorkspace(input).kb;
+  const anonymizedInput = input === root ? target : path.join(target, anonymizer.pathSegment(path.basename(input)));
+  const anonymized = buildWorkspace(anonymizedInput).kb;
   const comparison = shape(original).map(([metric, value], index) => ({ metric, original: value, anonymized: shape(anonymized)[index][1] }));
-  return { out: target, files, words: anonymizer["words"].size, comparison, ok: comparison.every((row) => row.original === row.anonymized) };
+  return { out: anonymizedInput, files, words: anonymizer["words"].size, comparison, ok: comparison.every((row) => row.original === row.anonymized) };
 }
 
 function shape(kb: KnowledgeBase): [string, number][] {

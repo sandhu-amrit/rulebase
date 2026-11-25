@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ilog.rules.studio.model.brl:ActionRule xmlns:ilog.rules.studio.model.brl="http://ilog.rules.studio/model/brl.ecore">
+  <name>cheap items</name>
+  <uuid>r-3</uuid>
+  <locale>en_US</locale>
+  <definition><![CDATA[definitions
+    set item to an item in the items of 'the shopping cart' ;
+if
+    the price of item is less than 5
+    and the kind of item is "CD"
+then
+    set the tier of this customer to Silver ;]]></definition>
+</ilog.rules.studio.model.brl:ActionRule>

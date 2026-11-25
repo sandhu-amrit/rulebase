@@ -179,7 +179,8 @@ export function link(input: LinkInput): Linked {
         owner: resolved.classFqn,
         memberId: resolved.memberId,
         kind: entry.key === "phrase.navigation" ? "navigation" : "action",
-        template: entry.value,
+        // `{0, <country>}` is slot 0 with an editor hint; the hint is not part of the text.
+        template: entry.value.replace(/\{\s*(\d+)\s*,[^}]*\}/g, "{$1}"),
         path: voc.provenance.path,
         project: voc.provenance.project,
       });
@@ -233,7 +234,11 @@ export function link(input: LinkInput): Linked {
       provenance: { project: verbalization.project, path: verbalization.path },
     };
     if (!items.some((item) => "lit" in item)) {
-      warnings.push({ path: verbalization.path, severity: "error", message: `verbalization '${verbalization.template}' of ${member.id} has no words to match` });
+      warnings.push({
+        path: verbalization.path,
+        severity: "info",
+        message: `verbalization '${verbalization.template}' of ${member.id} has no words, so its uses in rules are not detected`,
+      });
       continue;
     }
     phrases.set(phrase.id, phrase);
@@ -253,6 +258,24 @@ export function link(input: LinkInput): Linked {
       }
       artifacts.set(artifact.id, artifact);
     }
+  }
+  for (const project of input.projects) {
+    if (!project.parameters?.length) continue;
+    const path = `${project.folder === "." ? "" : `${project.folder}/`}.ruleproject`;
+    const id = `params:${project.name}`;
+    artifacts.set(id, {
+      id,
+      type: "variableSet",
+      name: `${project.name} ruleset parameters`,
+      package: "",
+      provenance: { project: project.name, path },
+      variables: project.parameters.map((item) => ({
+        name: item.name,
+        type: item.type,
+        verbalization: item.verbalization,
+        provenance: { project: project.name, path },
+      })),
+    });
   }
   for (const artifact of artifacts.values()) {
     if (artifact.type !== "variableSet") continue;
@@ -306,7 +329,7 @@ export function link(input: LinkInput): Linked {
     .filter((file) => file.kind !== "artifact" || (file.artifacts ?? []).some((artifact) => artifact.type === "variableSet"))
     .map((file) => `${file.path}:${file.hash}`)
     .sort()
-    .join("|") + `|${locale ?? ""}`;
+    .join("|") + `|${locale ?? ""}|${JSON.stringify(input.projects.map((project) => project.parameters ?? []))}`;
   const fileHash = new Map<string, string>();
   for (const file of input.files) for (const artifact of file.artifacts ?? []) fileHash.set(artifact.id, file.hash);
   const useCache = input.useCache;
@@ -528,8 +551,17 @@ function applyB2x(
   const reachable = [klass.fqn, ...(ancestors.get(klass.fqn) ?? [])].flatMap((fqn) => membersByClass.get(fqn) ?? []);
   for (const b2xMember of b2xClass.members) {
     const candidates = own.filter(
-      (member) => member.name === b2xMember.name && (b2xMember.kind !== "method" || member.params.length === b2xMember.paramTypes.length),
+      (member) =>
+        member.name === b2xMember.name &&
+        (b2xMember.kind === "attribute" ? member.kind === "attribute" : member.kind !== "attribute" && member.params.length === b2xMember.paramTypes.length),
     );
+    if (!candidates.length && b2xMember.name.includes(".")) {
+      // `.b2xa` writes a conversion operator as a method named after its target type.
+      const target = b2xMember.name;
+      candidates.push(
+        ...own.filter((member) => member.name === "operator" && (member.type === target || member.type.split(".").pop() === target.split(".").pop()) && member.params.length === b2xMember.paramTypes.length),
+      );
+    }
     if (!candidates.length) {
       warnings.push({ path: file.path, severity: "error", message: `B2X implements ${klass.fqn}.${b2xMember.name}, which is not a BOM member` });
       continue;
@@ -676,15 +708,17 @@ function withDefinitions(env: TypeEnv, artifact: Artifact, matcher: PhraseMatche
   const variables = new Map(env.variables);
   const local: TypeEnv = { ...env, variables };
   for (const statement of artifact.definitions.split(";")) {
-    const match = /^\s*set\s+'([^']+)'\s+to\s+([\s\S]+)$/i.exec(statement);
+    // `set 'the applicant' to ...` or, unquoted, `set smartfolder to an ilr smart view in elements`
+    const match = /^\s*set\s+(?:'([^']+)'|([A-Za-z_][\w]*))\s+to\s+([\s\S]+)$/i.exec(statement);
     if (!match) continue;
-    const name = stripArticles(normalize(match[1]));
-    const tokens = tokenizeBal(match[2]);
+    const raw = match[1] ?? match[2];
+    const name = stripArticles(normalize(raw));
+    const tokens = tokenizeBal(match[3]);
     const type = expressionType(tokens, local, matcher);
     if (type) variables.set(name, type);
     else {
       variables.set(name, "?");
-      warnings.push({ path: artifact.provenance.path, severity: "info", message: `definition '${match[1]}' could not be typed; uses through it are unresolved` });
+      warnings.push({ path: artifact.provenance.path, severity: "info", message: `definition '${raw}' could not be typed; uses through it are unresolved` });
     }
   }
   return local;

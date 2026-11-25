@@ -2,7 +2,7 @@
  * The queries behind the MCP tools. Read-only over a linked model.
  * Every answer is small: summaries and ids, with `get_artifact` for detail.
  */
-import { BAL_WORDS, tokenizeBal } from "./bal.js";
+import { BAL_WORDS, stripArticles, tokenizeBal } from "./bal.js";
 import { RULE_KINDS } from "./model.js";
 import { renderCell } from "./parse/artifacts.js";
 import { typeCategory } from "./parse/bom.js";
@@ -499,6 +499,12 @@ export class KnowledgeBase {
         return out;
     }
     /** Resolve a term reference (member id, class fqn, phrase id, or phrase text) to member ids / class fqns. */
+    /**
+     * Resolve a term reference to member ids / class fqns. Phrase text must validate
+     * exactly (every word known, subject type right): a near miss such as
+     * "the combined credit score of the loan request" is not silently read as
+     * "the credit score of the applicant". It returns `why` instead.
+     */
     resolveTerm(ref) {
         if (this.model.members.has(ref))
             return { targets: [ref], via: "member id" };
@@ -512,17 +518,39 @@ export class KnowledgeBase {
             return { targets: [`var:${variable.name}`], via: "ruleset parameter" };
         const glossary = this.model.glossary.find((entry) => normalize(entry.phrase) === normalize(ref));
         if (glossary) {
-            const targets = glossary.means.flatMap((item) => this.resolveTerm(item)?.targets ?? []);
+            const targets = glossary.means.flatMap((item) => {
+                const hit = this.resolveTerm(item);
+                return hit && "targets" in hit ? hit.targets : [];
+            });
             if (targets.length)
                 return { targets: [...new Set(targets)], via: `glossary '${glossary.phrase}'` };
         }
         const tokens = tokenizeBal(ref);
         const matches = this.model.matcher.match(tokens, this.model.env).filter((match) => match.compiled.phrase.kind !== "concept" || matchesAll(match, tokens.length));
-        if (!matches.length)
-            return null;
-        const resolved = matches.filter((match) => match.resolved);
-        const chosen = resolved.length ? resolved : matches;
-        return { targets: [...new Set(chosen.map((match) => match.compiled.phrase.memberId ?? match.compiled.phrase.owner))], via: "phrase text" };
+        if (matches.length) {
+            const check = this.validateOne(ref);
+            const problems = [
+                ...(check.unknownWords?.length ? [`unknown words: ${check.unknownWords.join(", ")}`] : []),
+                ...(check.unknownVariables?.length ? [`unknown variables: ${check.unknownVariables.join(", ")}`] : []),
+                ...(check.typeErrors ?? []),
+            ];
+            if (problems.length)
+                return { why: problems.join("; ") };
+            const resolved = matches.filter((match) => match.resolved && match.compiled.phrase.kind !== "concept");
+            const chosen = resolved.length ? resolved : matches.filter((match) => match.compiled.phrase.kind !== "concept");
+            if (chosen.length) {
+                return { targets: [...new Set(chosen.map((match) => match.compiled.phrase.memberId ?? match.compiled.phrase.owner))], via: resolved.length ? "phrase text" : "phrase text (subject not typed)" };
+            }
+            return { targets: [...new Set(matches.map((match) => match.compiled.phrase.owner))], via: "concept" };
+        }
+        // A bare term without its subject ("credit score"): every member verbalized with those words.
+        const bare = stripArticles(normalize(ref));
+        const members = [...this.model.phrases.values()]
+            .filter((phrase) => phrase.memberId && phrase.kind === "navigation" && stripArticles(normalize(phrase.template.replace(/\{(this|\d+)\}/g, " ").replace(/\bof\s*$/, "").replace(/[{}]/g, " "))) === bare)
+            .map((phrase) => phrase.memberId);
+        if (members.length)
+            return { targets: [...new Set(members)], via: members.length > 1 ? "term words (several classes have it)" : "term words" };
+        return null;
     }
     /** Members a target stands for, including virtual members computed from it (transitively). */
     expandDerived(target) {
@@ -575,8 +603,12 @@ export class KnowledgeBase {
         const requested = [];
         for (const term of input.terms) {
             const resolved = this.resolveTerm(term);
-            if (!resolved) {
-                gaps.push({ term, closest: this.termSearch.search(term, { limit: 3 }).map((hit) => this.model.phrases.get(hit.key.slice(7))?.text ?? "").filter(Boolean) });
+            if (!resolved || "why" in resolved) {
+                gaps.push({
+                    term,
+                    ...(resolved ? { why: resolved.why } : {}),
+                    closest: this.termSearch.search(term, { limit: 3 }).map((hit) => this.model.phrases.get(hit.key.slice(7))?.text ?? "").filter(Boolean),
+                });
                 continue;
             }
             requested.push({ term, ...resolved });
@@ -664,7 +696,10 @@ export class KnowledgeBase {
             add,
             vocabularyGaps: gaps.map((gap) => ({
                 term: gap.term,
-                meaning: "not in the vocabulary: a BOM change is needed before a rule can use it",
+                meaning: gap.why?.includes("unknown words") || !gap.why
+                    ? "not in the vocabulary: a BOM change is needed before a rule can use it"
+                    : "the words exist but do not fit together (see why); fix the phrasing, or the BOM if the term is really missing",
+                ...(gap.why ? { why: gap.why } : {}),
                 closest: gap.closest,
             })),
             checked: this.checked({
@@ -730,6 +765,8 @@ export class KnowledgeBase {
         if (found.artifact)
             return this.artifactImpact(found.artifact);
         const resolved = term ?? this.resolveTerm(ref);
+        if (resolved && "why" in resolved)
+            return { error: `'${ref}' is not a valid vocabulary phrase: ${resolved.why}`, checked: this.checked() };
         if (resolved)
             return this.termImpact(ref, resolved.targets);
         return { error: `'${ref}' is not an artifact, package, BOM member or vocabulary phrase.`, checked: this.checked() };
