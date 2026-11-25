@@ -1,75 +1,106 @@
 # Design
 
-The knowledge base is the piece everything else depends on. Proposal quality, low hallucination, and correct impact analysis all come from it. The design is hybrid by default: structured documents, relationships, and hybrid search, with provenance and vocabulary grounding.
+Rulebase is a local, read-only knowledge base over one IBM ODM Rule Designer workspace. A developer's AI assistant (Claude Code, Copilot, Cursor) calls it through MCP to find out what the rules actually say, which vocabulary is legal, and which rules a new requirement would touch.
 
-## What the store must contain
+Accuracy is the first priority. Every answer is either grounded in a source file or says plainly what it could not check.
 
-| Layer | Content | Why it matters |
+This document records the decisions agreed on 2026-11-24. Each one says why, so a later change can tell what it would be undoing.
+
+## What it is for
+
+A requirement arrives ("decline applicants whose debt-to-income is above 40%"). The developer's assistant uses Rulebase to answer:
+
+1. **Which existing rules or decision-table rows probably need to change**, and why.
+2. **Whether a new rule is needed**, and which package and ruleflow task it must land in to actually run.
+3. **Whether the vocabulary is missing something**, so a BOM change is needed before any rule can be written.
+4. **What else a change touches**: same package, the ruleflow task that selects it, the operation that runs the flow, and rules that use a virtual member computed from the changed member.
+
+Rulebase does not write rules. Writing rules is phase 2, and it will need the row- and condition-level provenance kept here.
+
+## Decisions
+
+| # | Decision | Why |
 |---|---|---|
-| Structured artifacts | Full BAL of action rules (definitions, if, then, else), decision-table columns, partitions, rows, preconditions, decision trees, functions, technical rules, ruleflow tasks, transitions, selection filters, package hierarchy | Exact source of truth for a proposal |
-| Vocabulary / BOM | Every class, attribute, method, verbalization, domain, enumeration, ruleset parameter | Stops hallucinated terms |
-| Decision-service boundary | Decision operations, input and output signatures, which packages and rules are in scope for a ruleset | Bounds what is deployed and affected |
-| Relationships | Package contains artifact, ruleflow task selects a package or uses a filter, rule uses a term, decision table has a column, test covers a rule, override, shared BOM | Impact analysis that respects selection |
-| Provenance | UUID, path, commit, Decision Center id when present | Every fact can be traced to a source file |
+| D1 | **Local tool only.** A CLI plus a stdio MCP server, started by the assistant host. No hosted service and no background daemon. | Adoption without infrastructure. Nothing to install, monitor or secure on each machine. |
+| D2 | **Reliability contract.** Deterministic output, loud failure on unparseable files (reported by path), versioned tool schemas, one-command install, explicit "I don't know". | An agent that trusts an incomplete index confidently misses rules. Silent gaps are the worst failure. |
+| D3 | **Input: one Rule Designer workspace = one decision service** and its rule projects. It is read from disk after the developer syncs from Decision Center. A Decision Center REST connector comes later. | Matches how developers work: Decision Center holds rule projects and the BOM, the XOM is in git, and Rule Designer combines them. |
+| D4 | **Project discovery is automatic.** Find every `.ruleproject` and follow project references. An optional `rulebase.yaml` can include or exclude projects. | Zero setup in the normal case. Stale projects can be excluded. |
+| D5 | **No UI.** `rulebase report` writes a static HTML report (gates, coverage, warnings, drift) that can be published as a CI artifact. | The users are assistants and developers in their editor. The only UI need is a person checking what was indexed. |
+| D6 | **Accuracy order:** parse fidelity > impact completeness > grounding precision (never accept an invented term) > grounding recall > search relevance. The first three are pass/fail gates; the last two are measured. | Each layer depends on the ones before it. |
+| D7 | **The glossary is a file** (`rulebase.glossary.yaml`) committed beside the workspace and reviewed in PRs. It is loaded into memory once. | Every input that changes answers is versioned and reviewable. It costs no speed. |
+| D8 | **Read-only.** | Writing BAL or decision tables back needs exact round-tripping of ODM XML. That is phase 2. |
+| D9 | **Full BOM fidelity**: fully qualified class names, inheritance, statics, domains and enums, member types, and virtual members with their B2X logic. | Real BOMs use all of these. Missing terms turn into false "vocabulary gap" answers. |
+| D10 | **Virtual members are legal vocabulary.** B2X is read so impact can follow a virtual member back to the members it is computed from. | Rules use virtual members like any other member. Impact must not miss rules through them. |
+| D11 | **XOM is not indexed** for now. | Rules are written in BOM vocabulary. The XOM adds types and BOM–XOM mismatch checks, which is a separate problem. |
+| D12 | **Branches and releases:** one index per workspace, rebuilt incrementally when files change. The footer shows the Decision Center branch when Rule Designer records it. Activities wait for the Decision Center connector. | Content-hash storage makes switching back to a branch nearly free. Drift answers "what is different on this branch". |
+| D13 | **The assistant does language; Rulebase validates.** The assistant maps business language to BOM phrases using `find_terms` and `list_terms`. Rulebase validates strictly (terms, literals, operators, types) and computes candidates and impact deterministically. | LLMs are good at paraphrase and bad at knowing which terms exist. Rulebase is the reverse. Building a language engine in Rulebase would never be as good. |
+| D14 | **SQLite is a disposable cache** outside the workspace (`%LOCALAPPDATA%\rulebase\` on Windows, `~/.cache/rulebase/` elsewhere). Artifacts are stored by content hash. Only the current and previous snapshot are kept. Reindex is incremental by file hash. | Everything can be rebuilt from the workspace plus committed files. The file stays small and an edit reindexes in about a second. |
+| D15 | **Performance targets with no quality trade-off:** full reindex of 5,000 artifacts in under 30 s, incremental under 2 s, query p95 under 50 ms, memory under 300 MB. Expensive checks run in `rulebase check` and CI, never by skipping them. | The old pipeline took 10 minutes at 5k artifacts because the recall gate ran on every reindex, and search had no inverted index. |
+| D16 | **Small responses.** Summaries plus ids, and only the matched decision-table rows. `get_artifact` returns the full document. | Assistant context is limited. |
+| D17 | **TypeScript.** Accuracy comes from parse fidelity, not the language. An optional Java harness compares our parse with IBM's own parser on a machine with Rule Designer installed. | Keeps the working code. The oracle makes "parses like ODM" a measured claim. |
+| D18 | **No vector search.** BM25 plus fuzzy matching (inflection, typos) plus `list_terms` browsing plus the glossary plus BOM documentation. A local embedding model is only added if the real-workspace test shows misses, and then only as an optional ranking signal, never for grounding. | Hashed vectors added nothing semantic. Browsing makes "not found" mean "does not exist". |
+| D19 | **Windows first.** CI runs on Windows and macOS. Files are decoded by their declared XML encoding. Paths are stored normalized with `/`. | Rule Designer runs on Windows. A path or encoding bug would silently drop files, which breaks D2. |
+| D20 | **Install from GitHub:** `npm install -g github:sandhu-amrit/rulebase`. Move to a registry once the version is stable. A bundled `.exe` is the fallback if Node is restricted. | The repo is private. GitHub access is enough. |
 
-## Storage
+## Workspace model
 
-The production shape is:
-
-- A structured document per artifact, kept by id. Search finds candidates. The full document is what the agent reasons over.
-- A graph for structural questions (contains, selects, uses, extracts).
-- Hybrid search: lexical (BM25) plus a vector signal.
-- A synonym glossary in front of the vocabulary, so business language maps onto formal verbalizations before anything is proposed.
-- Versioned snapshots, with a drift check between them.
-
-What is implemented today is the pragmatic form of that:
-
-- Documents and the graph live in one SQLite file (`node:sqlite`), one snapshot per reindex.
-- Search is BM25 (`k1 = 1.2`, `b = 0.75`) plus a 128-dimension hashed token vector. Score is `0.62 * lexical + 0.38 * cosine`, with a small bonus when the query phrase appears in the artifact.
-- The glossary is a curated list plus session entries from accepted proposals.
-- Drift compares artifact fingerprints and vocabulary examples between two snapshots.
-
-A dedicated graph database and an embedding service are not required to prove quality on one decision service. They are the next store once the schema and the gates are stable.
-
-## Retrieval
-
-An agent does not get a blob of text. It calls tools:
-
-1. `map_requirement` — translate the request onto vocabulary. Reject if any content token is unknown.
-2. `search_rules` — candidates from the grounded terms.
-3. `get_artifact` — the full document, with provenance.
-4. `get_ruleflow_impact` — packages, the flow task that selects them, the operation that runs the flow. Selection filters are part of the reason, not ignored.
-5. `get_decision_operation_signature` — inputs and directions, bound to known parameters.
-6. `validate_terms` — a hard check before a draft is allowed.
-7. `record_feedback` — an accepted proposal becomes a glossary entry; a rejection is kept.
-
-A draft is a skeleton in the project's own phrases. It is not applied. A person reviews it, then it is committed to the rule project.
-
-## Quality bar
-
-- 100% of rule artifacts parsed, each with a UUID and a file path.
-- Recall@5 at least 95% when searching a rule by its own name.
-- Zero tolerance for a term that is not in the vocabulary. The proposal is rejected, not softened.
-- Impact follows selection. A rule is in scope only if a ruleflow task selects its package or names it, or it shares that package with the seed.
-- Decision-table rows are recovered, including nested partitions.
-- Operation inputs resolve to variable-set parameters.
-
-## What is deliberately later
-
-- Shared BOM across several decision services as a first-class project graph (the `SHARES_BOM` edge is reserved for it).
-- Override and test-coverage edges populated from real priority and test artifacts (the edge types exist; Miniloan does not exercise them).
-- A host plugin for Copilot, Claude, or watsonx. The tool names are the contract. The workbench is the reference client.
-- Automatic reindex on push, beyond the GitHub Action that runs the pipeline test and a sample reindex.
-
-## Ingest
-
-Two inputs land in the same index.
-
-- A Rule Designer folder: `.brl`, `.dta`, `.rfl`, `.bom`, `.voc`, `.dop`, and the rest.
-- A DAIF document: a `DecisionService` JSON file with `metadata`, `datamodel`, `operation`, and `taskmodel`. Classes become vocabulary, packages become rules and tables, `ruleFlow.ruleTasks` become the selection graph.
-
-```bash
-npm run reindex -- src/fixtures/daif/fuselage.json rulebase.sqlite
+```text
+Workspace (one Rule Designer workspace folder)
+└── Decision service        the project with isADecisionService="true"
+    ├── Rule project         main project plus referenced projects
+    │   ├── Package          rules/<a>/<b> → a.b
+    │   │   └── Artifact     action rule, decision table, decision tree, function, technical rule
+    │   ├── Ruleflow         tasks, transitions, selection
+    │   ├── Decision operation
+    │   └── Variable set
+    └── BOM entry            .bom + .voc (one locale) + .b2x
+        └── Class            fully qualified, extends/implements
+            └── Member       attribute / method / constructor, type, static, virtual, domain
+                └── Phrase   navigation / action verbalization, instantiated
 ```
 
-The Fuselage fixture follows the DecisionsDev interchange example. DAIF has no formal schema file in that repo; the parser follows the documented shape and accepts decision tables with columns and rows.
+Every node keeps its provenance: project, workspace-relative path, UUID, and the content hash of its source file.
+
+## Tools (MCP)
+
+All tools are read-only. Each response ends with a `checked` footer giving the index time, file count, projects, branch when known, and any parse warnings that could hide a rule.
+
+| Tool | Purpose |
+|---|---|
+| `list_decision_services` | Decision service, projects, counts, index freshness, warnings |
+| `list_terms` | Browse vocabulary: classes, then the members of a class, with verbalization, type, virtual flag and documentation. Complete by construction. |
+| `find_terms` | Fuzzy search over verbalizations, member names, documentation and the glossary |
+| `validate_phrases` | Strict check of proposed BAL-like phrases: every term must exist, literals are typed, operators are known, types are compatible |
+| `find_change_candidates` | Given grounded terms (and optionally the original requirement), return candidates: **modify** (rules and rows with reasons), **add** (package plus ruleflow task where a new rule would run, plus similar rules), and **vocabulary gap** |
+| `get_artifact` | Full artifact with provenance, down to rows and cells |
+| `get_impact` | What a change to a rule, package or BOM member touches, including through virtual members |
+| `get_operation_signature` | Inputs and outputs of a decision operation |
+| `drift` | What changed since the previous index |
+
+## Quality gates (`rulebase check`, CI)
+
+- Every file with a known extension is parsed, or reported by path with the reason.
+- Every rule artifact has a UUID and a path.
+- Every ruleflow selection resolves to a package or rule that exists.
+- Every decision table has rows. The row count matches a direct count of action sets.
+- Every operation input binds to a variable-set parameter.
+- Every verbalization resolves to a BOM member of a known class.
+- Every virtual member has B2X logic, or a warning says it does not.
+- Recall@5 by own name ≥ 95%.
+- With the IBM oracle available: term usage, row counts and selection agree exactly.
+
+## Not in phase 1
+
+- Writing rules or tables.
+- The Decision Center REST connector and activities.
+- Comparing two branches directly (drift across a reindex covers the common case).
+- XOM indexing.
+- Embeddings.
+- A hosted or multi-user service.
+
+## Known risks
+
+- **No real workspace has been indexed yet.** Fixtures are built by hand from the ODM file formats. `rulebase anonymize` exists so a real workspace can be tested without its business content leaving the machine.
+- **BAL term usage is resolved by matching instantiated phrase patterns,** not a full BAL grammar. The IBM oracle comparison is how mismatches are found.
+- **Project references are read from the Eclipse `.project` file** and from the `.ruleproject` `paths`. This must be confirmed on a real workspace.
+- **The B2X and virtual-BOM format** follows the documented shape. Unknown elements are reported, not ignored.
