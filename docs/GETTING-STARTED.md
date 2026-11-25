@@ -25,14 +25,14 @@ Contents:
 You need:
 
 - **Node.js 22.13 or later.** Check with `node --version`. If it's older or missing, install the LTS from nodejs.org, or ask IT if installs are restricted.
-- **Git, with access to the Rulebase repository** (`sandhu-amrit/rulebase` on GitHub). That's an SSH key or a signed-in GitHub credential.
+- **Git, with access to your organization's Rulebase repository.** That's an SSH key or a signed-in GitHub credential. In the commands below, replace `<owner>/rulebase` (and `<rulebase-repo-url>`) with its location.
 - **A Rule Designer workspace on disk**, synced from Decision Center: the folder holding your decision service's projects (each project folder has a `.ruleproject` file).
 - **An assistant that supports MCP:** Claude Code, or VS Code with GitHub Copilot.
 
 ## 2. Install
 
 ```powershell
-npm install -g github:sandhu-amrit/rulebase
+npm install -g github:<owner>/rulebase
 rulebase --version
 ```
 
@@ -41,7 +41,7 @@ You should see a version number such as `0.2.0`.
 If `github:` doesn't resolve, use the SSH form:
 
 ```powershell
-npm install -g git+ssh://git@github.com/sandhu-amrit/rulebase.git
+npm install -g git+ssh://git@github.com/<owner>/rulebase.git
 ```
 
 There's nothing to build and no background service. `rulebase` is a command you run, or that your assistant starts for you.
@@ -51,7 +51,7 @@ There's nothing to build and no background service. `rulebase` is a command you 
 The repository includes IBM's Miniloan sample. Trying it first shows you what good output looks like:
 
 ```powershell
-git clone https://github.com/sandhu-amrit/rulebase.git
+git clone <rulebase-repo-url>
 cd rulebase
 rulebase check fixtures/miniloan
 ```
@@ -226,7 +226,7 @@ Some answers mean something specific:
 `rulebase check` exits with code 1 if a check fails, and `rulebase report` writes a single HTML file you can publish as a build artifact:
 
 ```yaml
-- run: npm install -g github:sandhu-amrit/rulebase
+- run: npm install -g github:<owner>/rulebase
 - run: rulebase check ./LoanDS
 - run: rulebase report ./LoanDS -o rulebase-report.html
 ```

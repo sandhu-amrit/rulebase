@@ -18,11 +18,11 @@ Rulebase never writes rules. A person reviews the proposal and makes the change 
 Requires Node.js 22.13 or later.
 
 ```powershell
-npm install -g github:sandhu-amrit/rulebase
+npm install -g github:<owner>/rulebase
 rulebase --version
 ```
 
-The repository is private, so git needs access to it (an SSH key or a GitHub credential). If `github:` does not resolve, use `npm install -g git+ssh://git@github.com/sandhu-amrit/rulebase.git`.
+Replace `<owner>/rulebase` with the GitHub location of your organization's Rulebase repository. Git needs access to it, through an SSH key or a GitHub credential. If `github:` does not resolve, use `npm install -g git+ssh://git@github.com/<owner>/rulebase.git`.
 
 ## Connect your assistant
 
