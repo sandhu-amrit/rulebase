@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows first: Rule Designer runs there.
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        node: ["22.13", "24"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Built CLI runs every gate on the fixtures
+        shell: bash
+        run: |
+          node dist/cli.js --version
+          node dist/cli.js check fixtures/miniloan --cache "$RUNNER_TEMP/m.sqlite"
+          node dist/cli.js check fixtures/acme-workspace --cache "$RUNNER_TEMP/a.sqlite"
+          node dist/cli.js report fixtures/acme-workspace -o "$RUNNER_TEMP/report.html" --cache "$RUNNER_TEMP/a.sqlite"
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'windows-latest' && matrix.node == '24'
+        with:
+          name: fixture-report
+          path: ${{ runner.temp }}/report.html
+
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run bench -- 5000 | tee bench.txt
+      # Speed targets gate the build. Memory is reported: it sits near the 300 MB line and varies by platform.
+      - run: "! grep -E 'MISS +(full|incremental|query)' bench.txt"

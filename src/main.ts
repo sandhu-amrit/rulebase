@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import { anonymizeWorkspace } from "./anonymize.ts";
 import { runGates } from "./check.ts";
 import { serveMcp } from "./mcp.ts";
 import { renderReport } from "./report.ts";
@@ -18,6 +19,8 @@ Usage:
   rulebase report <workspace> [-o file]    Write a static HTML report (default rulebase-report.html)
   rulebase drift <workspace>               What changed since the previous index
   rulebase query <workspace> <tool> [json] Call one tool and print its JSON answer
+  rulebase anonymize <workspace> <out>     Copy the workspace with business words, values and names replaced
+                                           (structure kept, then verified by indexing both)
   rulebase clean [<workspace> | --all]     Delete the cache for a workspace, or every cache
   rulebase --version
 
@@ -54,6 +57,23 @@ export async function main(argv: string[]): Promise<number> {
   }
   const workspace = args.shift();
   if (!workspace) return usage(`${command} needs a workspace folder`);
+  if (command === "anonymize") {
+    const out = args.shift();
+    if (!out) return usage("anonymize needs an output folder");
+    try {
+      const result = anonymizeWorkspace(workspace, out);
+      console.log(`wrote ${result.files} files to ${result.out} (${result.words} words replaced)`);
+      console.log("shape check, original vs anonymized:");
+      for (const row of result.comparison) {
+        console.log(`  ${row.original === row.anonymized ? "same" : "DIFF"}  ${row.metric.padEnd(18)} ${String(row.original).padStart(7)} ${String(row.anonymized).padStart(7)}`);
+      }
+      console.log(result.ok ? "The anonymized copy indexes the same way. Review it before sharing: comments and free text are replaced word by word, not removed." : "The copies differ: the anonymizer changed meaning somewhere. Please report the DIFF lines (they contain no business data).");
+      return result.ok ? 0 : 1;
+    } catch (error) {
+      console.error(`rulebase: ${error instanceof Error ? error.message : String(error)}`);
+      return 2;
+    }
+  }
 
   try {
     if (command === "mcp") {
