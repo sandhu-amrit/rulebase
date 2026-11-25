@@ -32,11 +32,11 @@ export function runGates(kb: KnowledgeBase): Gate[] {
 
   const flows = [...kb.model.artifacts.values()].filter((item) => item.type === "ruleflow");
   const unselected = flows.length
-    ? rules.filter((rule) => !kb.runPath(rule).selectedBy.length).map((rule) => `${rule.package}.${rule.name}`)
+    ? rules.filter((rule) => !kb.runsDescription(rule).runs).map((rule) => `${rule.package}.${rule.name}`)
     : [];
   gates.push({
     id: "selection",
-    label: "Every rule is selected by a ruleflow task",
+    label: "Every rule runs (selected by a task an operation runs, or an operation without ruleflow)",
     pass: true,
     detail: unselected.length ? `${unselected.length} rule(s) are never selected (reported, not a failure)` : flows.length ? "all rules selected" : "no ruleflow: all rules run",
     ...(unselected.length ? { failures: unselected.slice(0, 50) } : {}),

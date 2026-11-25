@@ -403,14 +403,26 @@ export function link(input) {
             rulesByName.set(key, list);
         }
     }
+    // Same-named ruleflows in different packages must not overwrite each other.
     const flowsByName = new Map();
     for (const artifact of artifacts.values()) {
         if (artifact.type !== "ruleflow")
             continue;
-        flowsByName.set(artifact.name, artifact);
-        if (artifact.package)
-            flowsByName.set(`${artifact.package}.${artifact.name}`, artifact);
+        for (const key of new Set([artifact.name, artifact.package ? `${artifact.package}.${artifact.name}` : artifact.name])) {
+            flowsByName.set(key, [...(flowsByName.get(key) ?? []), artifact]);
+        }
     }
+    /** UUID first (exact), then qualified or bare name. A bare name matching several is reported, and every match is kept as unresolved. */
+    const resolveFlow = (ref, path, what) => {
+        const byId = artifacts.get(ref);
+        if (byId?.type === "ruleflow")
+            return { flows: [byId], resolved: true };
+        const named = flowsByName.get(ref) ?? [];
+        if (named.length > 1) {
+            warnings.push({ path, severity: "error", message: `${what} '${ref}' matches ${named.length} ruleflows (${named.map((item) => item.provenance.path).join(", ")}); all are kept` });
+        }
+        return { flows: named, resolved: named.length === 1 };
+    };
     for (const flow of artifacts.values()) {
         if (flow.type !== "ruleflow")
             continue;
@@ -424,19 +436,29 @@ export function link(input) {
                 edges.push({ type: "SELECTS", from: `${flow.id}#${task.id}`, to: `pkg:${name}`, detail: reason });
             }
             for (const name of task.rules) {
-                const ids = rulesByName.get(name) ?? (artifacts.has(name) ? [name] : []);
+                // A UUID is exact. `package.name` is exact. A bare name may match rules in several packages.
+                const byId = artifacts.get(name);
+                const ids = byId && RULE_KINDS.includes(byId.type) ? [byId.id] : (rulesByName.get(name) ?? []);
                 if (!ids.length) {
                     warnings.push({ path: flow.provenance.path, severity: "error", message: `task '${task.id}' selects rule '${name}', which is not in the decision service` });
                     continue;
                 }
+                const exact = ids.length === 1;
+                if (!exact) {
+                    warnings.push({
+                        path: flow.provenance.path,
+                        severity: "error",
+                        message: `task '${task.id}' selects rule '${name}', which matches ${ids.length} rules in different packages; all are kept as possibly selected`,
+                    });
+                }
                 for (const id of ids)
-                    edges.push({ type: "SELECTS", from: `${flow.id}#${task.id}`, to: id, detail: reason });
+                    edges.push({ type: "SELECTS", from: `${flow.id}#${task.id}`, to: id, detail: exact ? reason : `${reason}; ambiguous rule name '${name}'`, resolved: exact });
             }
             if (task.kind === "subflow" && task.subflow) {
-                const target = flowsByName.get(task.subflow) ?? [...artifacts.values()].find((item) => item.type === "ruleflow" && item.id === task.subflow);
-                if (target)
-                    edges.push({ type: "SUBFLOW", from: `${flow.id}#${task.id}`, to: target.id, detail: reason });
-                else
+                const { flows: targets, resolved } = resolveFlow(task.subflow, flow.provenance.path, `subflow task '${task.id}' runs`);
+                for (const target of targets)
+                    edges.push({ type: "SUBFLOW", from: `${flow.id}#${task.id}`, to: target.id, detail: reason, resolved });
+                if (!targets.length)
                     warnings.push({ path: flow.provenance.path, severity: "error", message: `subflow task '${task.id}' runs '${task.subflow}', which is not found` });
             }
         }
@@ -445,11 +467,15 @@ export function link(input) {
         if (op.type !== "decisionOperation" || !op.operation)
             continue;
         const info = op.operation;
-        const flow = (info.ruleflowUuid ? artifacts.get(info.ruleflowUuid) : undefined) ??
-            (info.ruleflowName ? flowsByName.get(info.ruleflowName) : undefined);
-        if (flow)
-            edges.push({ type: "RUNS", from: op.id, to: flow.id, detail: info.rulesetName });
-        else if (info.ruleflowName || info.ruleflowUuid) {
+        const byUuid = info.ruleflowUuid ? artifacts.get(info.ruleflowUuid) : undefined;
+        const found = byUuid?.type === "ruleflow"
+            ? { flows: [byUuid], resolved: true }
+            : info.ruleflowName
+                ? resolveFlow(info.ruleflowName, op.provenance.path, "operation runs ruleflow")
+                : { flows: [], resolved: false };
+        for (const flow of found.flows)
+            edges.push({ type: "RUNS", from: op.id, to: flow.id, detail: info.rulesetName, resolved: found.resolved });
+        if (!found.flows.length && (info.ruleflowName || info.ruleflowUuid)) {
             warnings.push({ path: op.provenance.path, severity: "error", message: `operation runs ruleflow '${info.ruleflowName ?? info.ruleflowUuid}', which is not found` });
         }
         for (const input of info.signature) {

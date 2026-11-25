@@ -14,7 +14,7 @@ import { parseVoc } from "./parse/voc.ts";
 import { fileContent, scanWorkspace, sha, type FileStat, type WorkspaceFile, type WorkspaceScan } from "./workspace.ts";
 
 /** Bump when a parser changes output shape, so cached parses are not reused. */
-export const PARSER_VERSION = "10";
+export const PARSER_VERSION = "11";
 
 export interface ParseCache {
   get(key: string): ParsedFile | undefined;
@@ -91,20 +91,23 @@ export function loadGlossary(root: string, configured?: string): { entries: Glos
 }
 
 export function buildFromScan(scan: WorkspaceScan, cache?: ParseCache, previous?: ParsedFile[], useCache?: Map<string, CachedUses>): BuildResult {
+  // (`cache` may be write-only for a full rebuild: see Session.rebuild)
   const t0 = performance.now();
+  // Reuse is keyed exactly like the cache: a parser upgrade, a moved package or a renamed project
+  // all change the key, so an old parse is never served for a file it no longer describes.
   const byKey = new Map<string, ParsedFile>();
-  if (previous) for (const file of previous) byKey.set(file.hash + file.path, file);
+  if (previous) for (const file of previous) if (file.key) byKey.set(file.key, file);
   let reused = 0;
   const parsed: ParsedFile[] = [];
   for (const file of scan.files) {
     const key = cacheKey(file);
-    const hit = byKey.get(file.hash + file.path) ?? cache?.get(key);
-    if (hit && hit.project === file.project) {
+    const hit = byKey.get(key) ?? cache?.get(key);
+    if (hit && hit.key === key) {
       parsed.push(hit);
       reused++;
       continue;
     }
-    const result = parseFile(file);
+    const result = { ...parseFile(file), key };
     cache?.set(key, result);
     parsed.push(result);
   }

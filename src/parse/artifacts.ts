@@ -368,7 +368,8 @@ function ruleflow(ctx: Ctx): Artifact {
 function flowTask(kind: FlowTask["kind"], raw: unknown, ctx: Ctx): FlowTask {
   const ruleList = child(raw, "RuleList");
   const packages = children(ruleList, "Package").map((item) => attr(item, "Name") ?? textOf(item).trim()).filter(Boolean);
-  const rules = children(ruleList, "Rule").map((item) => attr(item, "Name") ?? attr(item, "Uuid") ?? textOf(item).trim()).filter(Boolean);
+  // The Uuid is exact; the Name may be shared by rules in different packages.
+  const rules = children(ruleList, "Rule").map((item) => attr(item, "Uuid") ?? attr(item, "Name") ?? textOf(item).trim()).filter(Boolean);
   const filterNode = child(raw, "Filter") ?? child(raw, "Select") ?? child(raw, "RuntimeSelection") ?? child(raw, "Selection");
   const filter = textOf(filterNode).trim();
   const actions = ["InitialActions", "FinalActions", "Actions"]

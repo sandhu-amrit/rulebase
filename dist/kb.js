@@ -12,6 +12,8 @@ const COMPARISON = ["less than", "more than", "greater than", "at least", "at mo
 export class KnowledgeBase {
     model;
     meta;
+    /** Set when a later rebuild failed: these answers are from an older index. */
+    stale;
     ruleSearch;
     termSearch;
     selectionByPackage = new Map();
@@ -131,15 +133,24 @@ export class KnowledgeBase {
             projects: this.meta.projects.map((project) => project.name),
             errors: errors.length,
             errorSample: errors.slice(0, 5).map((warning) => `${warning.path}: ${warning.message}`),
+            ...(this.stale ? { stale: this.stale } : {}),
             ...extra,
         };
     }
     /** Find an artifact by id, UUID, `package.name`, or a unique name. */
     findArtifact(ref) {
-        const direct = this.model.artifacts.get(ref) ?? this.model.artifacts.get(`pkg:${ref}`);
+        const direct = this.model.artifacts.get(ref);
         if (direct)
             return { artifact: direct };
         const all = [...this.model.artifacts.values()];
+        const pkg = this.model.artifacts.get(`pkg:${ref}`);
+        if (pkg) {
+            // `eligibility` may be a package and also a rule's name: say so instead of picking one.
+            const sameName = all.filter((item) => item.type !== "package" && item.name === ref);
+            if (sameName.length)
+                return { ambiguous: [pkg, ...sameName].map((item) => this.summary(item)) };
+            return { artifact: pkg };
+        }
         const qualified = all.filter((item) => item.package && `${item.package}.${item.name}` === ref);
         if (qualified.length === 1)
             return { artifact: qualified[0] };
@@ -408,8 +419,24 @@ export class KnowledgeBase {
                 return;
             unknownWords.push(token.value);
         });
+        // Keyword-like nouns used as if they were members (`the count of the borrower`, `the value of the loan`):
+        // they are BAL words, but here nothing in the vocabulary backs them.
+        const NOUNS = new Set(["value", "values", "date", "time", "count", "size", "variable", "percent", "list", "number", "sum", "average", "minimum", "maximum"]);
+        tokens.forEach((token, index) => {
+            if (covered.has(index) || token.kind !== "word" || !NOUNS.has(token.value))
+                return;
+            const next = tokens[index + 1];
+            if (!(next?.kind === "word" && (next.value === "of" || next.value === "de")))
+                return;
+            // `the number of <items> in ...` and other aggregates over a collection are BAL; a single object is not.
+            const rest = tokens.slice(index + 2);
+            if (rest.some((item) => item.kind === "word" && (item.value === "in" || item.value === "dans" || item.value === "where")))
+                return;
+            unknownWords.push(token.value);
+        });
         const nonConcept = matches.filter((match) => match.compiled.phrase.kind !== "concept");
-        const ok = !unknownWords.length && !unknownVariables.length && !typeErrors.length && (nonConcept.length > 0 || matches.length > 0);
+        // At least one real term (navigation, action or parameter) must be used: a concept name alone is not a condition.
+        const ok = !unknownWords.length && !unknownVariables.length && !typeErrors.length && nonConcept.length > 0;
         return {
             phrase: text,
             ok,
@@ -418,7 +445,7 @@ export class KnowledgeBase {
             ...(unknownVariables.length ? { unknownVariables } : {}),
             ...(typeErrors.length ? { typeErrors } : {}),
             ...(untyped.length ? { untyped } : {}),
-            ...(matches.length ? {} : { note: "No vocabulary term found in this phrase." }),
+            ...(nonConcept.length ? {} : { note: matches.length ? "Only a class name was found; no member of it is used, so this is not a valid condition or action." : "No vocabulary term found in this phrase." }),
         };
     }
     slotTypeErrors(match) {
@@ -510,6 +537,12 @@ export class KnowledgeBase {
             return { targets: [ref], via: "member id" };
         if (this.model.classes.has(ref))
             return { targets: [ref], via: "class" };
+        // A bare BOM member name (`yearlyIncome`) of a verbalized member
+        if (/^[A-Za-z_$][\w$]*$/.test(ref) && /[A-Z_]/.test(ref)) {
+            const byName = [...this.model.members.values()].filter((member) => member.name === ref && this.phrasesByMember.has(member.id)).map((member) => member.id);
+            if (byName.length)
+                return { targets: byName, via: byName.length > 1 ? "member name (several classes have it)" : "member name" };
+        }
         const phrase = this.model.phrases.get(ref);
         if (phrase)
             return { targets: [phrase.memberId ?? phrase.owner], via: "phrase id" };
@@ -551,6 +584,19 @@ export class KnowledgeBase {
         if (members.length)
             return { targets: [...new Set(members)], via: members.length > 1 ? "term words (several classes have it)" : "term words" };
         return null;
+    }
+    /** A BOM member matching these words that has no verbalization (so only a vocabulary entry is missing). */
+    unverbalizedMember(term) {
+        const words = stripArticles(normalize(term));
+        const head = words.split(" of ")[0].trim();
+        for (const member of this.model.members.values()) {
+            if (member.kind === "constructor" || this.phrasesByMember.has(member.id))
+                continue;
+            const spoken = normalize(splitIdentifier(member.name));
+            if (term === member.id || term === member.name || spoken === words || spoken === head)
+                return member.id;
+        }
+        return undefined;
     }
     /** Members a target stands for, including virtual members computed from it (transitively). */
     expandDerived(target) {
@@ -594,16 +640,51 @@ export class KnowledgeBase {
         }
         return { selectedBy, operations: [...operations] };
     }
-    hasRuleflow() {
-        return [...this.model.artifacts.values()].some((item) => item.type === "ruleflow");
+    /** Decision operations without a ruleflow: they run every rule of the ruleset. */
+    operationsRunningAll() {
+        return [...this.model.artifacts.values()].filter((item) => item.type === "decisionOperation" && !item.operation?.ruleflowName && !item.operation?.ruleflowUuid);
+    }
+    /**
+     * Whether and how a rule runs, in words. A rule runs when a ruleflow task selects it and an
+     * operation runs that ruleflow, or when an operation has no ruleflow (it runs every rule).
+     */
+    runsDescription(artifact) {
+        const path = this.runPath(artifact);
+        const lines = path.selectedBy.map((item) => item.reason);
+        const allOps = this.operationsRunningAll();
+        const anyOperation = [...this.model.artifacts.values()].some((item) => item.type === "decisionOperation");
+        const anyFlow = [...this.model.artifacts.values()].some((item) => item.type === "ruleflow");
+        let runs = path.operations.length > 0;
+        if (path.selectedBy.length && !path.operations.length && anyOperation) {
+            lines.push("but no decision operation runs that ruleflow");
+        }
+        for (const op of allOps) {
+            lines.push(`operation '${op.name}' has no ruleflow: it runs every rule in the ruleset`);
+            runs = true;
+        }
+        if (!anyOperation) {
+            // No operation to anchor on (classic projects): selection is the best evidence we have.
+            runs = path.selectedBy.length > 0 || !anyFlow;
+            if (!anyFlow)
+                lines.push("no ruleflow or operation: every rule in the ruleset runs");
+        }
+        if (!runs && !path.selectedBy.length)
+            lines.push("not selected by any ruleflow task, and no operation runs all rules: this rule does not run");
+        return { runs, lines };
     }
     findChangeCandidates(input) {
         const limit = input.limit ?? 15;
         const gaps = [];
         const requested = [];
+        const unverbalized = [];
         for (const term of input.terms) {
             const resolved = this.resolveTerm(term);
             if (!resolved || "why" in resolved) {
+                const inBom = this.unverbalizedMember(term);
+                if (inBom) {
+                    unverbalized.push({ term, member: inBom });
+                    continue;
+                }
                 gaps.push({
                     term,
                     ...(resolved ? { why: resolved.why } : {}),
@@ -613,12 +694,15 @@ export class KnowledgeBase {
             }
             requested.push({ term, ...resolved });
         }
+        // Every requested term that reaches a member gets credit for it, not just the first one.
         const targetInfo = new Map();
         for (const item of requested) {
             for (const target of item.targets) {
                 for (const expanded of this.expandDerived(target)) {
-                    if (!targetInfo.has(expanded.id))
-                        targetInfo.set(expanded.id, { term: item.term, via: expanded.via });
+                    const info = targetInfo.get(expanded.id) ?? { terms: [], via: expanded.via };
+                    if (!info.terms.includes(item.term))
+                        info.terms.push(item.term);
+                    targetInfo.set(expanded.id, info);
                 }
             }
         }
@@ -627,13 +711,17 @@ export class KnowledgeBase {
         for (const [target, info] of targetInfo) {
             for (const { artifactId, use } of this.model.usedBy.get(target) ?? []) {
                 const artifact = this.model.artifacts.get(artifactId);
-                if (!artifact || !RULE_KINDS.includes(artifact.type))
+                // Rules, and ruleflows: a threshold in a transition condition or task filter is a decision point too.
+                if (!artifact || !(RULE_KINDS.includes(artifact.type) || artifact.type === "ruleflow"))
                     continue;
                 const entry = scores.get(artifactId) ?? { score: 0, terms: new Set(), reasons: [], uses: [] };
-                const weight = (use.where === "conditions" || use.where.startsWith("column:") || use.where === "preconditions" ? 1 : 0.6) * (use.resolved ? 1 : 0.5) * (info.via ? 0.8 : 1);
-                if (!entry.terms.has(info.term))
-                    entry.score += 2;
-                entry.terms.add(info.term);
+                const decisive = use.where === "conditions" || use.where.startsWith("column:") || use.where === "preconditions" || use.where.startsWith("transition:") || use.where.startsWith("task:");
+                const weight = (decisive ? 1 : 0.6) * (use.resolved ? 1 : 0.5) * (info.via ? 0.8 : 1);
+                for (const term of info.terms) {
+                    if (!entry.terms.has(term))
+                        entry.score += 2;
+                    entry.terms.add(term);
+                }
                 entry.score += weight;
                 entry.uses.push(use);
                 entry.reasons.push(`${describeWhere(use.where, artifact)} uses "${use.text}"${use.resolved ? "" : " (subject not typed)"}${info.via ? `; ${info.via}` : ""}`);
@@ -650,23 +738,30 @@ export class KnowledgeBase {
         const ranked = [...scores.entries()].sort((a, b) => b[1].score - a[1].score || a[0].localeCompare(b[0]));
         const modify = ranked.slice(0, limit).map(([id, entry]) => {
             const artifact = this.model.artifacts.get(id);
-            const run = this.runPath(artifact);
+            if (artifact.type === "ruleflow") {
+                const ops = (this.flowsRunBy.get(artifact.id) ?? []).map((op) => this.model.artifacts.get(op)?.name ?? op);
+                return {
+                    ...this.summary(artifact),
+                    coverage: `${entry.terms.size}/${requested.length} terms`,
+                    reasons: [...new Set(entry.reasons)].slice(0, 6),
+                    note: "the decision is in the ruleflow itself (a transition condition or task filter), not only in rules",
+                    runs: ops.length ? ops.map((op) => `run by operation '${op}'`) : ["no decision operation runs this ruleflow"],
+                };
+            }
             return {
                 ...this.summary(artifact),
                 coverage: `${entry.terms.size}/${requested.length} terms`,
                 reasons: [...new Set(entry.reasons)].slice(0, 6),
                 ...(artifact.type === "decisionTable" ? { table: this.tableExcerpt(artifact, entry.uses) } : {}),
-                runs: run.selectedBy.length
-                    ? run.selectedBy.map((item) => item.reason)
-                    : this.hasRuleflow()
-                        ? ["not selected by any ruleflow task: this rule does not run"]
-                        : ["no ruleflow: every rule in the ruleset runs"],
+                runs: this.runsDescription(artifact).lines,
             };
         });
         // Where would a new rule go? Packages whose rules already use the terms, and that a task selects.
         const packageScore = new Map();
         for (const [id, entry] of ranked) {
             const artifact = this.model.artifacts.get(id);
+            if (artifact.type === "ruleflow")
+                continue;
             if (artifact.package)
                 packageScore.set(artifact.package, (packageScore.get(artifact.package) ?? 0) + entry.score);
         }
@@ -681,7 +776,9 @@ export class KnowledgeBase {
                 selectedBy: tasks.map((item) => item.reason),
                 operations: [...new Set(tasks.flatMap((item) => this.flowsRunBy.get(item.flow) ?? []))].map((op) => this.model.artifacts.get(op)?.name ?? op),
                 similarRules: exemplars,
-                ...(tasks.length || !this.hasRuleflow() ? {} : { warning: "no ruleflow task selects this package: a new rule here would not run" }),
+                ...(tasks.length || this.operationsRunningAll().length || ![...this.model.artifacts.values()].some((item) => item.type === "ruleflow")
+                    ? {}
+                    : { warning: "no ruleflow task selects this package: a new rule here would not run" }),
             };
         });
         if (!add.length && requested.length) {
@@ -694,6 +791,15 @@ export class KnowledgeBase {
             requested: requested.map((item) => ({ term: item.term, resolvedTo: item.targets, via: item.via })),
             modify,
             add,
+            ...(unverbalized.length
+                ? {
+                    needsVerbalization: unverbalized.map((item) => ({
+                        term: item.term,
+                        member: item.member,
+                        meaning: "exists in the BOM but has no verbalization: add a vocabulary entry for it (no BOM change needed)",
+                    })),
+                }
+                : {}),
             vocabularyGaps: gaps.map((gap) => ({
                 term: gap.term,
                 meaning: gap.why?.includes("unknown words") || !gap.why
@@ -751,7 +857,12 @@ export class KnowledgeBase {
         return {
             artifact: copy,
             uses: uses.map((use) => ({ target: use.target, where: use.where, text: use.text, ...(use.resolved ? {} : { resolved: false }), ...(use.writes ? { writes: true } : {}) })),
-            ...(run ? { runs: run.selectedBy.map((item) => item.reason), operations: run.operations.map((op) => this.model.artifacts.get(op)?.name ?? op) } : {}),
+            ...(run
+                ? {
+                    runs: this.runsDescription(artifact).lines,
+                    operations: [...new Set([...run.operations, ...this.operationsRunningAll().map((op) => op.id)])].map((op) => this.model.artifacts.get(op)?.name ?? op),
+                }
+                : {}),
             warnings: this.model.warnings.filter((warning) => warning.path === artifact.provenance.path).map((warning) => warning.message),
             checked: this.checked(),
         };
@@ -817,9 +928,11 @@ export class KnowledgeBase {
                 }
             }
         }
+        const runs = this.runsDescription(artifact);
         return {
             target: this.summary(artifact),
-            ...(run.selectedBy.length || !this.hasRuleflow() ? {} : { warning: "no ruleflow task selects this rule: it does not run" }),
+            runs: runs.lines,
+            ...(runs.runs ? {} : { warning: "this rule does not run: no ruleflow task that an operation runs selects it" }),
             affected,
             checked: this.checked(),
         };

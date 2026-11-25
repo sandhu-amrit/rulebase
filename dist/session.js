@@ -14,7 +14,27 @@ import { drift } from "./drift.js";
 import { buildWorkspace, cacheKey } from "./indexer.js";
 import { cacheFileFor, Store, summarize } from "./store.js";
 const STAT_INTERVAL_MS = 30_000;
-const IGNORED = /(^|[\\/])(\.metadata|\.git|output|bin|target|node_modules)([\\/]|$)/;
+/**
+ * Paths (relative to the workspace) whose changes don't matter. Eclipse metadata and VCS folders anywhere;
+ * output/bin/target only at a project's top level, because inside rules/ such a folder is a package.
+ */
+const IGNORED = /(^|[\\/])(\.metadata|\.git|\.svn|node_modules)([\\/]|$)/;
+const BUILD_DIRS = new Set(["output", "bin", "target"]);
+/** A build folder is output/bin/target directly inside a rule project (next to its .ruleproject). */
+function isBuildDir(dir) {
+    return BUILD_DIRS.has(path.basename(dir)) && fs.existsSync(path.join(path.dirname(dir), ".ruleproject"));
+}
+/** Whether a changed path (relative to the workspace) can affect the index. */
+function ignoredChange(root, relative) {
+    if (IGNORED.test(relative))
+        return true;
+    const parts = relative.split(/[\\/]/);
+    for (let i = 0; i < parts.length - 1; i++) {
+        if (BUILD_DIRS.has(parts[i]) && isBuildDir(path.join(root, ...parts.slice(0, i + 1))))
+            return true;
+    }
+    return false;
+}
 export class Session {
     root;
     store;
@@ -38,7 +58,7 @@ export class Session {
     startWatching() {
         try {
             this.watcher = fs.watch(this.root, { recursive: true }, (_event, file) => {
-                if (file && IGNORED.test(String(file)))
+                if (file && ignoredChange(this.root, String(file)))
                     return;
                 this.dirty = true;
             });
@@ -63,7 +83,9 @@ export class Session {
             }
             for (const entry of entries) {
                 const full = path.join(dir, entry.name);
-                if (IGNORED.test(full))
+                if (IGNORED.test(path.relative(this.root, full)))
+                    continue;
+                if (entry.isDirectory() && isBuildDir(full))
                     continue;
                 if (entry.isDirectory()) {
                     if (depth < 12)
@@ -98,10 +120,26 @@ export class Session {
     }
     /** `full` re-reads and re-hashes every file instead of trusting unchanged size and mtime. */
     rebuild(full = false) {
-        this.dirty = false;
         this.lastStat = Date.now();
         this.statSignature = this.statScan();
-        const result = buildWorkspace(this.root, this.store, this.parsed, full ? undefined : this.fileStats, this.useCache);
+        let result;
+        try {
+            result = full
+                ? buildWorkspace(this.root, { get: () => undefined, set: (key, value) => this.store.set(key, value) }, undefined, undefined, undefined)
+                : buildWorkspace(this.root, this.store, this.parsed, this.fileStats, this.useCache);
+        }
+        catch (error) {
+            // Keep the last good index, but stay dirty (retry next call) and label every answer as stale.
+            this.dirty = true;
+            const reason = error instanceof Error ? error.message : String(error);
+            this.log(`rebuild failed: ${reason}`);
+            if (this.result) {
+                this.result.kb.stale = `the workspace could not be re-indexed (${reason}); answers come from the index of ${this.result.kb.meta.indexedAt}`;
+                return this.result;
+            }
+            throw error;
+        }
+        this.dirty = false;
         this.parsed = result.parsed;
         this.fileStats = result.scan.stats;
         // File contents are only needed for parsing; don't keep 5,000 file texts alive.
