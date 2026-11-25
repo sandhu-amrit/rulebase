@@ -1,5 +1,7 @@
 # Rulebase: instructions for coding agents
 
+*For changing Rulebase's own code, in this repository. To use Rulebase on a rule project, read `docs/GETTING-STARTED.md` instead.*
+
 Rulebase is a local, read-only knowledge base over one IBM ODM Rule Designer workspace, served to AI assistants over MCP. Its users trust its answers in order to change business rules. **A confident wrong answer is the worst bug it can have**: worse than a crash, a slow index, or a missing feature. Every change is judged by that.
 
 Read `docs/DESIGN.md` for why it is built this way. For step-by-step recipes, open `docs/EXTENDING.md` when you add a file format, ODM syntax, a BAL language, a tool or a quality gate, or when you work on a bug from a real workspace.
@@ -43,7 +45,15 @@ Every item, in this order:
 3. `npm run typecheck` and `npm test` both pass.
 4. **`npm run build`**, then commit `dist/` together with `src/`. A git install runs `dist/` with no build step, and CI fails if `dist/` doesn't match `src/` (`npm run check:dist`).
 5. For changes to parsing, linking, search or the session: `npm run bench -- 5000` still meets the speed targets in `docs/DESIGN.md` (D15).
-6. **Docs updated wherever behaviour changed**: `README.md` (users), `docs/DESIGN.md` (a new or changed decision, or status), this file (a new invariant or area). Edit in place; delete what is no longer true.
+6. **Docs updated wherever behaviour changed.** Every fact has one home:
+   - `docs/REFERENCE.md`: tools, answers, commands, configuration, what is read, accuracy and performance numbers;
+   - `docs/GETTING-STARTED.md`: the steps a new user follows;
+   - `docs/DESIGN.md`: decisions and known risks;
+   - `skills/odm-change-analysis/`: how an assistant uses the tools;
+   - `docs/EXTENDING.md`: recipes and the regression corpus;
+   - this file: invariants, the map above, this checklist.
+
+   Edit the home, link to it from elsewhere, and delete what is no longer true. `README.md` is only the front door.
 
 ## Gotchas
 

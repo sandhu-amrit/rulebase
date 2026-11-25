@@ -40,7 +40,7 @@ Rulebase does not write rules. Writing rules is phase 2, and it will need the ro
 | D17 | **TypeScript.** Accuracy comes from parse fidelity, not the language. An optional Java harness compares our parse with IBM's own parser on a machine with Rule Designer installed. | Keeps the working code. The oracle makes "parses like ODM" a measured claim. |
 | D18 | **No vector search.** BM25 plus fuzzy matching (inflection, typos) plus `list_terms` browsing plus the glossary plus BOM documentation. A local embedding model is only added if the real-workspace test shows misses, and then only as an optional ranking signal, never for grounding. | Hashed vectors added nothing semantic. Browsing makes "not found" mean "does not exist". |
 | D19 | **Windows first.** CI runs on Windows and macOS. Files are decoded by their declared XML encoding. Paths are stored normalized with `/`. | Rule Designer runs on Windows. A path or encoding bug would silently drop files, which breaks D2. |
-| D20 | **Install from GitHub:** `npm install -g github:<owner>/rulebase`. Move to a registry once the version is stable. A bundled `.exe` is the fallback if Node is restricted. | The repo is private. GitHub access is enough. |
+| D20 | **Install from GitHub** with `npm install -g`, from the compiled `dist/` (no build at install). Move to a registry once the version is stable. A bundled `.exe` is the fallback if Node is restricted. | The repo is private. GitHub access is enough. |
 
 ## Workspace model
 
@@ -63,20 +63,7 @@ Every node keeps its provenance: project, workspace-relative path, UUID, and the
 
 ## Tools (MCP)
 
-All tools are read-only. Each response ends with a `checked` footer giving the index time, file count, projects, branch when known, and any parse warnings that could hide a rule.
-
-| Tool | Purpose |
-|---|---|
-| `list_decision_services` | Decision service, projects, counts, index freshness, warnings |
-| `list_terms` | Browse vocabulary: classes, then the members of a class, with verbalization, type, virtual flag and documentation. Complete by construction. |
-| `find_terms` | Fuzzy search over verbalizations, member names, documentation and the glossary |
-| `validate_phrases` | Strict check of proposed BAL-like phrases: every term must exist, literals are typed, operators are known, types are compatible |
-| `find_change_candidates` | Given grounded terms (and optionally the original requirement), return candidates: **modify** (rules and rows with reasons), **add** (package plus ruleflow task where a new rule would run, plus similar rules), and **vocabulary gap** |
-| `get_artifact` | Full artifact with provenance, down to rows and cells |
-| `get_impact` | What a change to a rule, package or BOM member touches, including through virtual members |
-| `get_ruleflow_paths` | Tasks in running order, what each selects, the conditions on every path that reaches it, before and after, algorithm and exit-criteria semantics, unreachable tasks, the operations and parent flows that run it |
-| `get_operation_signature` | Inputs and outputs of a decision operation |
-| `drift` | What changed since the previous index |
+All tools are read-only, and every answer ends with a `checked` footer (D2). The list, and what each tool returns, is in [REFERENCE.md](REFERENCE.md#tools).
 
 ## Quality gates (`rulebase check`, CI)
 
@@ -99,20 +86,9 @@ All tools are read-only. Each response ends with a `checked` footer giving the i
 - Embeddings.
 - A hosted or multi-user service.
 
-## Status (2026-11-25)
+## Status
 
-Built and tested: every decision above except D17's IBM-parser harness and the parked items.
-
-**Real-world coverage:** 27 public decision services (IBM DecisionsDev samples and ODM projects on GitHub, listed in `HOW-IT-WAS-BUILT.md`). They contain 336 rules and 387 table rows, and 1,675 of 1,678 term uses (99.8%) are linked to the right BOM member, across English, French and Portuguese BAL.
-
-**Scale:** measured on 5,000 synthetic artifacts (Intel i7-9750H Mac, Node 25):
-
-| Target (D15) | Measured |
-|---|---|
-| Full index < 30 s | 5–6 s |
-| Incremental < 2 s | 0.7–0.9 s |
-| Query p95 < 50 ms | under 10 ms |
-| Memory < 300 MB | about 300 MB RSS in a fresh server process (81 MB heap); at the line, and platform-dependent |
+Every decision above is built, except the IBM-parser comparison (D17) and the items under "Not in phase 1". Measured coverage and performance against D15 are in [REFERENCE.md](REFERENCE.md#accuracy).
 
 ## Known risks
 

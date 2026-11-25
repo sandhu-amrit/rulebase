@@ -171,7 +171,7 @@ cp -r skills/odm-change-analysis ~/.claude/skills/
 
 It then runs on its own when you ask about a rule change, or you can type `/odm-change-analysis`.
 
-**GitHub Copilot:** copy the folder to `.github/skills/odm-change-analysis/` in the repository you work in. If your Copilot version doesn't pick it up, paste the skill's "Requirement" section into that repository's `.github/copilot-instructions.md` instead.
+**GitHub Copilot:** copy the folder to `.github/skills/odm-change-analysis/` in your rule-project repository (the one you open in VS Code, not the Rulebase repository). If your Copilot version doesn't pick it up, paste the skill's "Requirement" section into that repository's `.github/copilot-instructions.md` instead.
 
 ## 7. Ask your first questions
 
@@ -196,32 +196,15 @@ For a requirement, expect a **proposal** like this:
 - **Impact:** what else the change touches.
 - **Open points:** what you need to decide or confirm.
 
-Some answers mean something specific:
-
-| If the answer says… | It means |
-|---|---|
-| **vocabulary gap** | The term doesn't exist in your BOM, or its words don't fit together (the reason is given). A BOM or vocabulary change has to come first. |
-| **needs verbalization** | The field exists in the BOM but has no wording yet. Adding a vocabulary entry is enough; no BOM change. |
-| **does not run** | No ruleflow task that an operation runs selects this rule. Changing it has no effect. |
-| **possible** / *subject not typed* | A likely match that Rulebase couldn't confirm. Check it. |
-| **unread files** | Some files couldn't be read and may hide a rule. Fix them (see the report). |
-| **stale** | Your workspace couldn't be re-indexed after a change. The answer is from the previous index. |
+Some words in answers have a specific meaning: *vocabulary gap*, *needs verbalization*, *does not run*, *possible*, *unread files*, *stale*. They're explained in [REFERENCE.md](REFERENCE.md#what-the-answers-mean).
 
 **What it won't do:** edit your rules. You review the proposal and make the change in Rule Designer or Decision Center. That's deliberate.
 
 ## 8. Day to day
 
 - **Syncing from Decision Center, or switching branch or release:** nothing to do. Rulebase notices the changed files and re-indexes them before its next answer. Ask the assistant *"what changed?"* to see the drift.
-- **Business words your team uses** that aren't in the BOM ("DTI", "over-leveraged"): put them in `rulebase.glossary.yaml` in the workspace folder, commit it, and review changes like code:
-
-  ```yaml
-  - phrase: debt-to-income
-    means: ["the yearly repayment of the loan", "the yearly income of the borrower"]
-    note: DTI is yearly repayment / yearly income
-  ```
-
-  An entry that points at a term that no longer exists shows up as an error, so the glossary can't silently go out of date.
-- **Overriding the defaults** (rarely needed): `rulebase.yaml` in the workspace folder can pick the decision service, exclude a stale project, or set the vocabulary locale. See the README's Configuration section.
+- **Business words your team uses** that aren't in the BOM ("DTI", "over-leveraged"): put them in `rulebase.glossary.yaml` in the workspace folder, commit it, and review changes like code. The format is in [REFERENCE.md](REFERENCE.md#configuration). An entry that points at a term that no longer exists shows up as an error, so the glossary can't silently go out of date.
+- **Overriding the defaults** (rarely needed): `rulebase.yaml` in the workspace folder can pick the decision service, exclude a stale project, or set the vocabulary locale. See [REFERENCE.md](REFERENCE.md#configuration).
 - **Clearing the cache:** `rulebase clean C:\workspaces\LoanDS`. It's safe to do; the next index is a full one.
 
 ## 9. Use it in CI
@@ -267,4 +250,4 @@ If the comparison prints a `DIFF` line, the anonymizer itself changed something.
 
 ---
 
-**Next:** the [README](../README.md) is the full reference (tools, files read, configuration, accuracy, performance), and [DESIGN.md](DESIGN.md) explains why Rulebase works the way it does.
+**Next:** [REFERENCE.md](REFERENCE.md) has every tool, command and setting, and what Rulebase reads. [DESIGN.md](DESIGN.md) explains why it works the way it does.

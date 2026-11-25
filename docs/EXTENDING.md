@@ -58,7 +58,7 @@ The patterns are language-neutral; the word lists are not.
 1. Add the query method to `KnowledgeBase` in `src/kb.ts`. It returns plain JSON and ends with `checked: this.checked(…)`. Cap list sizes and say how many items were left out.
 2. Register it in `TOOLS` in `src/tools.ts`. The description is written for the model: say when to call it and what it returns. If the workflow changes, update `INSTRUCTIONS`.
 3. Add a case to `test/mcp.test.ts` if the contract changed, and a behaviour test next to the area's other tests.
-4. Document it in the tool table in `README.md` and `docs/DESIGN.md`.
+4. Document it in the tool table in `docs/REFERENCE.md`, and add any new answer field to "What the answers mean" there.
 5. Add it to the skill (`skills/odm-change-analysis/SKILL.md`): to the branch table if it answers a new kind of question, and to "Reading results" if it returns a field the assistant must act on. `test/skill.test.ts` fails until the skill names the tool.
 
 ## 6. New quality gate
@@ -71,4 +71,20 @@ Run `npm run bench -- 5000`. The hot paths, in the order they have mattered: XML
 
 ## Corpus
 
-The public ODM workspaces used for regression testing are listed in `docs/HOW-IT-WAS-BUILT.md`. Clone them outside the repo, run `rulebase check` on each decision-service folder, and compare the error counts and typed-use counts before and after your change.
+Public ODM workspaces used for regression testing. Clone them outside this repository, run `rulebase check` on each decision-service folder, and compare the error counts and typed-use counts before and after your change.
+
+| Repository (GitHub) | Point Rulebase at | Exercises |
+|---|---|---|
+| `DecisionsDev/odm-transformation-advisor` | the repo root | multi-project, large BOM, nested classes, parameter domains |
+| `DecisionsDev/odm-javatime` | `SampleRulesetStrict`, `SampleRulesetCompatible` | `.b2xa`, conversion operators, `#flags`, two decision services in one folder |
+| `DecisionsDev/odm-libs-in-maven` | `samples/executionserver/j2eerulesession/ruleproject/balsample rule` | classic project, `.ruleproject` parameters, fork/join |
+| `DecisionsDev/odm-container-samples` | `decisioncenter/dynamicdomain/projects` | body-level domains, virtual members |
+| `DecisionsDev/ODM-AI-toolkit-for-Bob` | each folder under `sample_projects/` | 8 small decision services (their `.voc` defects are real) |
+| `ArnabMukherjee1991/LoanValidation` | `Loan Validation Service` | 5 projects, decision tables, definitions with arithmetic |
+| `ncrowther/ODMGovernanceAsset` | `GovernanceRules/rbrgDecisionService` | subflows 4 levels deep, subflow by `Uuid` |
+| `perucello/ODM_EducaCiencia_Template` | `EducaCienciaFastCode/EducaCienciaFastCode` | Portuguese BAL, adjacent slots |
+| `oussemaBenAmor/IA-Hybride` | `brms/BRMS` | French BAL, partitive slots |
+| `jlv91/SYRACUSE` | `SYRACUSE-ODM/syracuse-rule-designer/syracuse-rules` | French BAL, a package named `output` |
+| `IBMStreams/streamsx.health`, `ibm-cloud-architecture/denim-compute`, `AthenaDecisionSystems/athena-owl-demos`, `pberlandier/odm-cicd`, `SaifRehman/ICP-Airways`, `inukshuk-io/ibm-odm-support-samples` | the decision-service project folders | assorted styles and ODM versions |
+
+The baseline at the time of writing: 27 decision services, 336 rules, 1,675 of 1,678 term uses typed. Remaining errors are defects in those repositories.
