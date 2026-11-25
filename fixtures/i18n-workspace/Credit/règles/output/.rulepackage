@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ilog.rules.studio.model.base:RulePackage xmlns:ilog.rules.studio.model.base="http://ilog.rules.studio/model/base.ecore"><name>output</name><uuid>pkg-out</uuid></ilog.rules.studio.model.base:RulePackage>

@@ -97,13 +97,30 @@ function simpleProperties(node) {
 /** Split BAL into its parts. Keywords must start a line, as Rule Designer writes them. */
 export function splitBal(bal) {
     const text = bal.replace(/\r\n?/g, "\n");
-    const re = /(?:^|\n)[ \t]*(definitions|if|then|else)(?=\s|$)/gi;
+    // English and French BAL section keywords
+    const re = /(?:^|\n)[ \t]*(definitions|d\u00e9finitions|defini\u00e7\u00f5es|definiciones|if|then|else|si|alors|sinon|se|ent\u00e3o|sen\u00e3o|entonces|sino)(?=\s|$)/gi;
     const marks = [];
     let match;
     while ((match = re.exec(text))) {
         marks.push({ key: match[1].toLowerCase(), index: match.index, end: re.lastIndex });
     }
-    const keyMap = { definitions: "definitions", if: "conditions", then: "actions", else: "elseActions" };
+    const keyMap = {
+        definitions: "definitions",
+        "d\u00e9finitions": "definitions",
+        if: "conditions",
+        si: "conditions",
+        then: "actions",
+        alors: "actions",
+        else: "elseActions",
+        sinon: "elseActions",
+        "defini\u00e7\u00f5es": "definitions",
+        definiciones: "definitions",
+        se: "conditions",
+        "ent\u00e3o": "actions",
+        entonces: "actions",
+        "sen\u00e3o": "elseActions",
+        sino: "elseActions",
+    };
     const out = {};
     for (let i = 0; i < marks.length; i++) {
         const body = text.slice(marks[i].end, i + 1 < marks.length ? marks[i + 1].index : text.length).trim();
@@ -116,8 +133,13 @@ export function splitBal(bal) {
 function actionRule(ctx) {
     const artifact = base(ctx, "actionRule");
     const bal = textOf(child(ctx.node, "definition")).trim();
-    if (!bal)
-        ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: "action rule has no <definition>" });
+    if (!bal) {
+        ctx.warnings.push({
+            path: ctx.provenance.path,
+            severity: "info",
+            message: `action rule has an empty definition (a draft or disabled rule)${artifact.documentation ? "; its documentation holds rule text, which is not indexed as rule logic" : ""}`,
+        });
+    }
     return { ...artifact, bal, ...splitBal(bal) };
 }
 function codeArtifact(ctx, type) {
@@ -351,7 +373,7 @@ function flowTask(kind, raw, ctx) {
     })
         .filter(Boolean)
         .join("\n");
-    const subflow = kind === "subflow" ? (attr(raw, "Ruleflow") ?? attr(raw, "FlowName") ?? attr(raw, "Flow") ?? scalar(raw, "Ruleflow")) : undefined;
+    const subflow = kind === "subflow" ? (attr(raw, "Ruleflow") ?? attr(raw, "FlowName") ?? attr(raw, "Flow") ?? attr(raw, "Uuid") ?? scalar(raw, "Ruleflow")) : undefined;
     if (kind === "subflow" && !subflow) {
         ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: `subflow task '${attr(raw, "Identifier") ?? "?"}' has no readable target` });
     }

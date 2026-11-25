@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ilog.rules.studio.model.ruleflow:RuleFlow xmlns:ilog.rules.studio.model.ruleflow="http://ilog.rules.studio/model/ruleflow.ecore">
+  <name>sorties</name><uuid>rfl-sub</uuid><locale>fr_FR</locale>
+  <rfModel><Ruleflow xmlns="http://schemas.ilog.com/Rules/7.0/Ruleflow"><Body>
+    <TaskList>
+      <StartTask Identifier="s"/>
+      <RuleTask ExecutionMode="Fastpath" Identifier="output"><RuleList><Package Name="output"/></RuleList></RuleTask>
+      <StopTask Identifier="e"/>
+    </TaskList>
+    <NodeList><TaskNode Identifier="m0" Task="s"/><TaskNode Identifier="m1" Task="output"/><TaskNode Identifier="m2" Task="e"/></NodeList>
+    <TransitionList><Transition Identifier="u0" Source="m0" Target="m1"/><Transition Identifier="u1" Source="m1" Target="m2"/></TransitionList>
+  </Body></Ruleflow></rfModel>
+</ilog.rules.studio.model.ruleflow:RuleFlow>

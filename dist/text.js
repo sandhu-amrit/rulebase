@@ -1,13 +1,21 @@
 /** Text normalization shared by search, phrase matching and validation. */
 /** Articles are dropped before phrase matching: BAL adds them freely ("the credit score of 'the borrower'"). */
-export const ARTICLES = new Set(["the", "a", "an"]);
+export const ARTICLES = new Set([
+    "the", "a", "an",
+    // French: definite, indefinite and partitive articles (BAL inserts them around {this,PARTITIVE_ARTICLE})
+    "le", "la", "les", "l", "un", "une", "des", "du", "de", "d",
+    // Portuguese and Spanish (contractions with de / a / em / por included; "no" is left out, it is an English keyword)
+    "o", "os", "as", "um", "uma", "uns", "umas", "do", "da", "dos", "das", "na", "nos", "nas", "ao", "aos", "pelo", "pela", "pelos", "pelas",
+    "el", "los", "las", "unos", "unas", "del", "al",
+]);
 /**
  * Words of a text for phrase matching, with articles removed. A bare capital
  * `A` is kept: in ODM it is usually a domain value (`the grade is A`), not an article.
  */
 export function phraseWords(text) {
     const out = [];
-    for (const raw of text.split(/[^A-Za-z0-9\u00C0-\u024F']+/)) {
+    // Apostrophes separate words (`l'âge` -> `l`, `âge`), as the BAL tokenizer does.
+    for (const raw of text.split(/[^A-Za-z0-9\u00C0-\u024F]+/)) {
         if (!raw)
             continue;
         const isArticle = ARTICLES.has(raw.toLowerCase()) && raw !== "A";

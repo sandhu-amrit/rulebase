@@ -1,0 +1,21 @@
+property origin "xom:/Credit/xom"
+package banque;
+
+public class Demande
+{
+    public int dureeMois;
+    public double montant;
+    public banque.Client client;
+}
+
+public class Client
+{
+    public int age;
+    public string nom;
+}
+
+public class Rapport
+{
+    public void ajouterMotif(string motif);
+    public void rejeter(string message);
+}

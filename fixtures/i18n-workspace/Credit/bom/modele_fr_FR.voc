@@ -1,0 +1,13 @@
+banque.Demande#concept.label = demande
+banque.Demande.dureeMois#phrase.navigation = {duree mois} {this,PARTITIVE_ARTICLE}
+banque.Demande.montant#phrase.navigation = {montant} {this,PARTITIVE_ARTICLE}
+banque.Demande.client#phrase.navigation = {client} {this,PARTITIVE_ARTICLE}
+banque.Client#concept.label = client
+banque.Client.age#phrase.navigation = {âge} {this,PARTITIVE_ARTICLE}
+banque.Client.age#phrase.action = assigner l'âge {this,PARTITIVE_ARTICLE} à {âge}
+banque.Client.nom#phrase.navigation = {nom} {this,PARTITIVE_ARTICLE}
+banque.Rapport#concept.label = rapport
+banque.Rapport.ajouterMotif(java.lang.String)#phrase.action = ajouter {0} aux motifs {this,PARTITIVE_ARTICLE}
+banque.Rapport.rejeter(java.lang.String)#phrase.action = dans {this}, rejeter la demande avec le message {0}
+@duree\ mois#gender = FEMALE
+@montant#plural = montants

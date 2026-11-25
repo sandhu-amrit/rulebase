@@ -91,6 +91,9 @@ export function link(input) {
         if (!localeMatches(voc.locale, locale))
             continue;
         for (const entry of voc.entries) {
+            // `@age of the latest bankruptcy#plural = ...`, `@valeur#gender = FEMALE`: grammar of a term, not a member
+            if (entry.owner.startsWith("@"))
+                continue;
             const resolved = resolveOwner(entry.owner, classes, membersByClass);
             if (!resolved) {
                 warnings.push({ path: voc.provenance.path, severity: "error", message: `line ${entry.line}: '${entry.owner}' is not a BOM class or member` });
@@ -115,7 +118,8 @@ export function link(input) {
                 memberId: resolved.memberId,
                 kind: entry.key === "phrase.navigation" ? "navigation" : "action",
                 // `{0, <country>}` is slot 0 with an editor hint; the hint is not part of the text.
-                template: entry.value.replace(/\{\s*(\d+)\s*,[^}]*\}/g, "{$1}"),
+                // `{0, <country>}` and `{this,PARTITIVE_ARTICLE}`: a slot with an editor hint or article style
+                template: entry.value.replace(/\{\s*(this|\d+)\s*,[^}]*\}/g, "{$1}"),
                 path: voc.provenance.path,
                 project: voc.provenance.project,
             });
@@ -314,6 +318,10 @@ export function link(input) {
             }
         };
         if (RULE_KINDS.includes(artifact.type)) {
+            if (artifact.bal && !artifact.definitions && !artifact.conditions && !artifact.actions && !artifact.elseActions && artifact.type === "actionRule") {
+                warnings.push({ path: artifact.provenance.path, severity: "info", message: "no if/then (or si/alors) sections found; the whole rule text is scanned as one body" });
+                scan(artifact.bal, "body");
+            }
             scan(artifact.definitions, "definitions");
             scan(artifact.conditions, "conditions");
             scan(artifact.actions, "actions");
@@ -698,7 +706,8 @@ function usesFromMatch(match, where, text, tokens) {
     const start = tokens[match.from]?.at ?? 0;
     const end = tokens[match.to - 1]?.end ?? text.length;
     const snippet = text.slice(start, end).replace(/\s+/g, " ").trim();
-    const writes = phrase.kind === "action" && /^\s*(set|make it)\b/i.test(phrase.template);
+    // Setter phrases: English, French, Portuguese, Spanish
+    const writes = phrase.kind === "action" && /^\s*(set|make it|assigner|mettre|d\u00e9finir|definir|rendre|atribuir|definir|asignar|establecer)\b/i.test(phrase.template);
     return [{ target, phraseId: phrase.id, where, text: snippet, resolved: match.resolved, ...(writes ? { writes } : {}) }];
 }
 /**

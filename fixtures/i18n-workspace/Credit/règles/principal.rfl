@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ilog.rules.studio.model.ruleflow:RuleFlow xmlns:ilog.rules.studio.model.ruleflow="http://ilog.rules.studio/model/ruleflow.ecore">
+  <name>principal</name><uuid>rfl-main</uuid><locale>fr_FR</locale>
+  <rfModel><Ruleflow xmlns="http://schemas.ilog.com/Rules/7.0/Ruleflow"><Body>
+    <TaskList>
+      <StartTask Identifier="debut"/>
+      <RuleTask ExecutionMode="Fastpath" Identifier="eligibilite"><RuleList><Package Name="eligibilite"/></RuleList></RuleTask>
+      <SubflowTask Identifier="sorties" Uuid="rfl-sub"/>
+      <StopTask Identifier="fin"/>
+    </TaskList>
+    <NodeList>
+      <TaskNode Identifier="n0" Task="debut"/><TaskNode Identifier="n1" Task="eligibilite"/><TaskNode Identifier="n2" Task="sorties"/><TaskNode Identifier="n3" Task="fin"/>
+    </NodeList>
+    <TransitionList>
+      <Transition Identifier="t0" Source="n0" Target="n1"/><Transition Identifier="t1" Source="n1" Target="n2"/><Transition Identifier="t2" Source="n2" Target="n3"/>
+    </TransitionList>
+  </Body></Ruleflow></rfModel>
+</ilog.rules.studio.model.ruleflow:RuleFlow>

@@ -20,6 +20,8 @@ export const INDEXED_EXTENSIONS = new Set([
 const KNOWN_SKIPPED = new Set([".qry", ".tst", ".brmx", ".sc", ".dsc", ".ilrt", ".properties", ".xml", ".xsd", ".jar", ".class", ".java", ".prefs", ".json", ".txt", ".md"]);
 
 const SKIP_DIRS = new Set([".metadata", ".git", ".svn", "node_modules", "output", "bin", "target", ".settings", "RemoteSystemsTempFiles"]);
+/** Skipped anywhere. The others (output, bin, target) are build folders only at a project's top level: inside rules/ they can be packages. */
+const ALWAYS_SKIP = new Set([".metadata", ".git", ".svn", "node_modules", ".settings", "RemoteSystemsTempFiles"]);
 
 export interface WorkspaceConfig {
   decisionService?: string;
@@ -172,6 +174,10 @@ function readProject(root: string, folder: string, warnings: Warning[]): Project
   }
   const name = scalar(node, "name") ?? eclipseName ?? path.basename(folder);
   references.delete(name);
+  const product = otherProduct(folder);
+  if (product) {
+    warnings.push({ path: `${rel}/.ruleproject`, severity: "error", message: `this is ${product}, not an ODM rule project: its ${product.startsWith("a Decision Server") ? "event rules" : "decision models"} are not read` });
+  }
   const parameters = children(node, "parameters")
     .map((item) => ({
       name: attr(item, "name") ?? "",
@@ -315,7 +321,7 @@ function collectFiles(
     for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (SKIP_DIRS.has(entry.name)) continue;
+        if (ALWAYS_SKIP.has(entry.name)) continue;
         walk(full, role, sourceRoot);
         continue;
       }
@@ -429,6 +435,27 @@ function packageOf(relativeDir: string): string {
     .split("/")
     .filter((part) => part && part !== ".")
     .join(".");
+}
+
+/** Projects of other IBM decision products share the .ruleproject layout but not the rule formats. */
+function otherProduct(folder: string): string | undefined {
+  if (fs.existsSync(path.join(folder, "agent.adsc"))) return "a Decision Server Insights rule agent";
+  let found: string | undefined;
+  const walk = (dir: string, depth: number) => {
+    if (found || depth > 4) return;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory() && !ALWAYS_SKIP.has(entry.name)) walk(path.join(dir, entry.name), depth + 1);
+      else if (/\.(dmo|drl)$/.test(entry.name)) found = "an Automation Decision Services (ADS) project";
+    }
+  };
+  walk(path.join(folder, "rules"), 0);
+  return found;
 }
 
 /** Best effort: Decision Center synchronization settings name the branch. Never guessed. */

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ilog.rules.studio.model.base:RuleProject xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ilog.rules.studio.model.base="http://ilog.rules.studio/model/base.ecore" xmlns:ilog.rules.studio.model.bom="http://ilog.rules.studio/model/bom.ecore" isADecisionService="true">
+  <name>Credit</name>
+  <uuid>credit-uuid</uuid>
+  <modelFolders xsi:type="ilog.rules.studio.model.base:SourceFolder"><name>règles</name></modelFolders>
+  <modelFolders xsi:type="ilog.rules.studio.model.bom:BOMFolder"><name>bom</name></modelFolders>
+  <parameters name="demande" type="banque.Demande" verbalization="la demande"/>
+  <parameters name="rapport" type="banque.Rapport" verbalization="le rapport" direction="OUT"/>
+</ilog.rules.studio.model.base:RuleProject>

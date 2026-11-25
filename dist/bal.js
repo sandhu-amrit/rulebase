@@ -6,6 +6,14 @@ const BOUNDARY = new Set([
     "starts", "ends", "with", "where", "from", "after", "before", "one", "print", "add", "remove", "in", "as",
     "definitions", "when", "for", "each", "all", "any", "following", "conditions", "condition", "there", "no",
     "number", "null", "times", "plus", "minus", "divided", "multiplied", "by", "has", "have", "be",
+    // French BAL
+    "est", "sont", "et", "ou", "alors", "si", "sinon", "que", "qui", "pas", "ne", "n", "moins", "egal", "egale",
+    "entre", "avec", "dans", "pour", "au", "aux", "superieur", "inferieur", "grand", "grande", "petit", "petite",
+    "contient", "commence", "termine", "par", "vrai", "faux", "nul", "nulle", "chaque", "tous", "toutes", "aucun",
+    "aucune", "assigner", "mettre", "ajouter", "retirer", "afficher", "rendre", "definir", "ou",
+    // Portuguese and Spanish BAL
+    "e", "se", "entao", "senao", "nao", "maior", "menor", "igual", "verdadeiro", "falso", "nulo", "definir", "definicoes",
+    "es", "y", "entonces", "sino", "mayor", "igual", "verdadero", "falso", "nulo", "definiciones", "en", "em", "con", "com",
 ]);
 const MAX_SLOT_TOKENS = 12;
 /** BAL keywords and operator words: allowed in a validated phrase without being vocabulary. */
@@ -19,8 +27,20 @@ export const BAL_WORDS = new Set([
     "below", "above", "under", "over", "within", "outside", "inclusive", "exclusive", "higher", "lower",
     "greater", "fewer", "smaller", "bigger", "larger", "up", "down", "into", "on", "by", "per", "an", "a", "the",
     "do", "did", "done", "should", "must", "will", "would", "can", "could", "being", "been", "was", "were",
+    // French BAL keywords and operator words
+    "definitions", "il", "elle", "ce", "cette", "ces", "y", "a", "plus", "egaux", "different", "differente", "jour", "jours",
+    "mois", "an", "ans", "annee", "annees", "heure", "heures", "nombre", "somme", "moyenne", "minimum", "maximum", "vide",
+    "dernier", "derniere", "premier", "premiere", "suivant", "suivante", "selon", "sans", "sur", "sous", "apres", "avant",
 ]);
+/**
+ * French / Italian elision (`l'âge`, `d'un`, `qu'il`): the apostrophe belongs to the word, it does not
+ * open a quoted variable. It is replaced by a space (same length, so offsets are unchanged).
+ */
+function unelide(text) {
+    return text.replace(/(^|[^A-Za-z\u00C0-\u024F'])([lLdDnNsScCjJmMtT]|[qQ]u)'(?=[A-Za-z\u00C0-\u024F])/g, (_, before, letters) => `${before}${letters} `);
+}
 export function tokenizeBal(text) {
+    text = unelide(text);
     const tokens = [];
     const re = /'([^'\n]*)'|"((?:[^"\\]|\\.)*)"|(<[^<>\n]+>)|(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?%?|-?\d+(?:\.\d+)?%?)|([A-Za-zÀ-ɏ][\wÀ-ɏ-]*)|(<=|>=|!=|==|[*/+\-<>=%])|([;,.:()])/g;
     let match;
@@ -199,7 +219,10 @@ export class PhraseMatcher {
             else {
                 // `isOlderThan({0})`: skip an opening bracket before a trailing slot, and its closing one after.
                 const open = tokens[pos]?.kind === "punct" && tokens[pos].value === "(";
-                const slot = forwardNounPhrase(tokens, open ? pos + 1 : pos);
+                // Two slots in a row (`atribuir o status final {this} a {status final}`, where `a` is dropped):
+                // the first one must not swallow the value that starts the second.
+                const nextIsSlot = Boolean(next && "slot" in next);
+                const slot = forwardNounPhrase(tokens, open ? pos + 1 : pos, nextIsSlot);
                 if (!slot)
                     return null;
                 slots[item.slot] = slot;
@@ -234,7 +257,7 @@ function isNounToken(token) {
     return token.kind === "word" && !BOUNDARY.has(token.value);
 }
 /** Noun phrase starting at `pos`: a variable, a literal, or words up to a boundary (`of` chains allowed). */
-function forwardNounPhrase(tokens, pos) {
+function forwardNounPhrase(tokens, pos, wordsOnly = false) {
     const first = tokens[pos];
     if (!isNounToken(first))
         return null;
@@ -244,6 +267,8 @@ function forwardNounPhrase(tokens, pos) {
     while (end < tokens.length && end - pos < MAX_SLOT_TOKENS) {
         const token = tokens[end];
         if (token.kind === "var" || token.kind === "placeholder") {
+            if (wordsOnly)
+                break;
             end++;
             break;
         }
@@ -284,6 +309,11 @@ function backwardNounPhrase(tokens, pos) {
 }
 function typeSlot(slot, tokens, env, matcher, depth) {
     let span = tokens.slice(slot.from, slot.to);
+    // `in 'the loan report', reject ...`: punctuation at the edges of a slot is not part of its value.
+    while (span.length > 1 && span[span.length - 1].kind === "punct" && [",", ";", ":"].includes(span[span.length - 1].value))
+        span = span.slice(0, -1);
+    while (span.length > 1 && span[0].kind === "punct" && [",", ":"].includes(span[0].value))
+        span = span.slice(1);
     // `(the location of 'the merchant')`: brackets around an argument don't change its type.
     while (span.length > 2 && span[0].kind === "punct" && span[0].value === "(" && span[span.length - 1].kind === "punct" && span[span.length - 1].value === ")") {
         span = span.slice(1, -1);
@@ -311,8 +341,8 @@ function typeSlot(slot, tokens, env, matcher, depth) {
     }
     const words = span.filter((token) => token.kind === "word").map((token) => token.value);
     if (words.length === span.length) {
-        // `this ilr project element`, `each item`: a demonstrative in front of a concept label
-        const label = words.join(" ").replace(/^(this|each|that|every) /, "");
+        // `this ilr project element`, `each item`, `cet élément`, `este pedido`: a demonstrative in front of a concept label
+        const label = words.join(" ").replace(/^(this|each|that|every|ce|cet|cette|ces|chaque|este|esta|esse|essa|cada) /, "");
         const concept = env.concepts.get(label);
         if (concept) {
             slot.type = concept;

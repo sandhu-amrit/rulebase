@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ilog.rules.studio.model.brl:ActionRule xmlns:ilog.rules.studio.model.brl="http://ilog.rules.studio/model/brl.ecore">
+  <name>brouillon</name>
+  <uuid>r-3</uuid>
+  <documentation><![CDATA[si le montant de 'la demande' est plus grand que 1 alors ...]]></documentation>
+  <locale>fr_FR</locale>
+  <definition><![CDATA[]]></definition>
+</ilog.rules.studio.model.brl:ActionRule>

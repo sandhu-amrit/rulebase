@@ -14,7 +14,7 @@ import { parseVoc } from "./parse/voc.ts";
 import { fileContent, scanWorkspace, sha, type FileStat, type WorkspaceFile, type WorkspaceScan } from "./workspace.ts";
 
 /** Bump when a parser changes output shape, so cached parses are not reused. */
-export const PARSER_VERSION = "7";
+export const PARSER_VERSION = "10";
 
 export interface ParseCache {
   get(key: string): ParsedFile | undefined;

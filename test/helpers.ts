@@ -27,3 +27,4 @@ export function copyTree(from: string, to: string): void {
   fs.cpSync(from, to, { recursive: true });
 }
 export const CLASSIC = path.join(ROOT, "fixtures", "classic-workspace");
+export const I18N = path.join(ROOT, "fixtures", "i18n-workspace");
