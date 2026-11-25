@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ilog.rules.studio.model.brl:ActionRule xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:ilog.rules.studio.model.brl="http://ilog.rules.studio/model/brl.ecore">
+  <name>minimum score</name>
+  <uuid>brl-0003</uuid>
+  <locale>en_US</locale>
+  <definition><![CDATA[definitions
+    set 'the applicant' to the borrower of 'the loan' ;
+if
+    the credit score of 'the applicant' is less than 600
+    and the name of 'the applicant' is not null
+then
+    add "Credit score below 600" to the messages of 'the loan' ;
+    reject 'the loan' ;
+else
+    set the score band of 'the loan' to "standard" ;]]></definition>
+</ilog.rules.studio.model.brl:ActionRule>

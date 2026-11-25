@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ilog.rules.studio.model.ruleflow:RuleFlow xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:ilog.rules.studio.model.ruleflow="http://ilog.rules.studio/model/ruleflow.ecore">
+  <name>main</name>
+  <uuid>rfl-0001</uuid>
+  <locale>en_US</locale>
+  <rfModel>
+<Ruleflow xmlns="http://schemas.ilog.com/Rules/7.0/Ruleflow">
+  <Body>
+    <TaskList>
+      <StartTask Identifier="start"/>
+      <RuleTask ExecutionMode="Fastpath" ExitCriteria="None" Identifier="validate" Ordering="Default">
+        <RuleList>
+          <Package Name="validation"/>
+        </RuleList>
+      </RuleTask>
+      <RuleTask ExecutionMode="RetePlus" ExitCriteria="None" Identifier="score" Ordering="Default">
+        <RuleList>
+          <Package Name="eligibility.scoring"/>
+          <Rule Name="eligibility.grade check"/>
+        </RuleList>
+      </RuleTask>
+      <StopTask Identifier="end"/>
+    </TaskList>
+    <NodeList>
+      <TaskNode Identifier="n0" Task="start"/>
+      <TaskNode Identifier="n1" Task="validate"/>
+      <TaskNode Identifier="n2" Task="score"/>
+      <TaskNode Identifier="n3" Task="end"/>
+    </NodeList>
+    <TransitionList>
+      <Transition Identifier="t0" Source="n0" Target="n1"/>
+      <Transition Identifier="t1" Source="n1" Target="n2">
+        <Conditions Language="bal"><![CDATA['the loan' is approved]]></Conditions>
+      </Transition>
+      <Transition Identifier="t2" Source="n2" Target="n3"/>
+      <Transition Identifier="t3" Source="n1" Target="n3"/>
+    </TransitionList>
+  </Body>
+</Ruleflow>
+  </rfModel>
+</ilog.rules.studio.model.ruleflow:RuleFlow>

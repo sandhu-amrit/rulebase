@@ -1,0 +1,6 @@
+# Business words the team agreed on, reviewed in pull requests.
+- phrase: debt-to-income
+  means: ["the debt ratio of the borrower"]
+  note: DTI is computed in the BOM (B2X) from monthly debt and yearly income
+- phrase: salary
+  means: ["com.acme.loan.Borrower.yearlyIncome"]

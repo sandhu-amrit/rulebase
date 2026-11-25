@@ -1,0 +1,7 @@
+property uuid "bom-0002"
+package com.acme.risk;
+
+public class RiskProfile
+{
+    public readonly int riskLevel;
+}

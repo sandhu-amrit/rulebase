@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ilog.rules.studio.model.trl:TechnicalRule xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:ilog.rules.studio.model.trl="http://ilog.rules.studio/model/trl.ecore">
+  <name>score floor</name>
+  <uuid>trl-0001</uuid>
+  <definition><![CDATA[when {
+  ?b: com.acme.loan.Borrower(creditScore < 300);
+} then {
+  ?b.setFrozen(true);
+}]]></definition>
+</ilog.rules.studio.model.trl:TechnicalRule>

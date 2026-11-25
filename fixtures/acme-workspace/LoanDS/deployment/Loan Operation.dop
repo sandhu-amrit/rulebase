@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<com.ibm.rules.studio.model.decisionservice:Operation xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:com.ibm.rules.studio.model.decisionservice="http://com.ibm.rules.studio/model/decisionservice.ecore" rulesetName="LoanRuleset" usingRuleflow="true" ruleflowName="main" targetRuleProjectName="LoanDS">
+  <name>Loan Operation</name>
+  <uuid>op-0001</uuid>
+  <referencedVariables variableName="borrower" variableSetName="parameters.var"/>
+  <referencedVariables variableName="loan" variableSetName="parameters.var" direction="IN_OUT"/>
+  <ruleflow href="../rules/main.rfl#rfl-0001"/>
+</com.ibm.rules.studio.model.decisionservice:Operation>

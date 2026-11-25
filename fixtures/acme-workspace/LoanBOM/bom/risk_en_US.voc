@@ -1,0 +1,2 @@
+com.acme.risk.RiskProfile#concept.label = risk profile
+com.acme.risk.RiskProfile.riskLevel#phrase.navigation = {risk level} of {this}

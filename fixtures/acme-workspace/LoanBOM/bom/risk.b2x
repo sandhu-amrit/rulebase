@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<b2x:javaXOMMapping xmlns:b2x="http://schemas.ilog.com/JRules/1.1/B2X">
+  <class>
+    <businessName>com.acme.risk.RiskProfile</businessName>
+    <executionName>java.lang.Object</executionName>
+    <attribute>
+      <name>riskLevel</name>
+      <getter language="irl"><![CDATA[return 3;]]></getter>
+    </attribute>
+  </class>
+</b2x:javaXOMMapping>

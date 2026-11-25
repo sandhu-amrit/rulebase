@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<b2x:javaXOMMapping xmlns:b2x="http://schemas.ilog.com/JRules/1.1/B2X">
+  <class>
+    <businessName>com.acme.loan.Borrower</businessName>
+    <executionName>com.acme.loan.Borrower</executionName>
+    <attribute>
+      <name>debtRatio</name>
+      <getter language="irl"><![CDATA[return (this.monthlyDebt * 12) / this.getYearlyIncome();]]></getter>
+    </attribute>
+    <method>
+      <name>hasScoreAbove</name>
+      <parameter type="int"/>
+      <body language="irl"><![CDATA[return creditScore > threshold;]]></body>
+    </method>
+  </class>
+</b2x:javaXOMMapping>

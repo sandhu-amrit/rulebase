@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectDescription>
+	<name>LoanRules</name>
+	<comment></comment>
+	<projects>
+		<project>LoanBOM</project>
+	</projects>
+	<buildSpec></buildSpec>
+	<natures><nature>ilog.rules.studio.model.ruleNature</nature></natures>
+</projectDescription>

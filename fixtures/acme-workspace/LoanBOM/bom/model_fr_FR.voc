@@ -1,0 +1,3 @@
+uuid = voc-0002
+com.acme.loan.Borrower#concept.label = emprunteur
+com.acme.loan.Borrower.creditScore#phrase.navigation = {score de cr\u00e9dit} de {this}

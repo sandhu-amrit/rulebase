@@ -1,0 +1,27 @@
+# Vocabulary Properties
+uuid = voc-0001
+
+com.acme.loan.Party#concept.label = party
+com.acme.loan.Party.name#phrase.navigation = {name} of {this}
+com.acme.loan.Borrower#concept.label = borrower
+com.acme.loan.Borrower.creditScore#phrase.navigation = {credit score} of {this}
+com.acme.loan.Borrower.creditScore#phrase.action = set the credit score of {this} to {credit score}
+com.acme.loan.Borrower.yearlyIncome#phrase.navigation = {yearly income} of {this}
+com.acme.loan.Borrower.monthlyDebt#phrase.navigation = {monthly debt} of {this}
+com.acme.loan.Borrower.debtRatio#phrase.navigation = {debt ratio} of {this}
+com.acme.loan.Borrower.grade#phrase.navigation = {grade} of {this}
+com.acme.loan.Borrower.frozen#phrase.navigation = {this} is frozen
+com.acme.loan.Borrower.hasScoreAbove(int)#phrase.navigation = {this} has a score above {0}
+com.acme.loan.Grade#concept.label = grade
+com.acme.loan.Grade.A#phrase.navigation = A
+com.acme.loan.Grade.B#phrase.navigation = B
+com.acme.loan.Grade.C#phrase.navigation = C
+com.acme.loan.Loan#concept.label = loan
+com.acme.loan.Loan.amount#phrase.navigation = {amount} of {this}
+com.acme.loan.Loan.approved#phrase.navigation = {this} is approved
+com.acme.loan.Loan.borrower#phrase.navigation = {borrower} of {this}
+com.acme.loan.Loan.scoreBand#phrase.navigation = {score band} of {this}
+com.acme.loan.Loan.scoreBand#phrase.action = set the score band of {this} to {score band}
+com.acme.loan.Loan.messages#phrase.navigation = {messages} of {this}
+com.acme.loan.Loan.addToMessages(java.lang.String)#phrase.action = add {0} to the messages of {this}
+com.acme.loan.Loan.reject()#phrase.action = reject {this}

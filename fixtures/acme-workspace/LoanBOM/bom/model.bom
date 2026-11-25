@@ -1,0 +1,49 @@
+property loadGetterSetterAsProperties "true"
+property origin "xom:/LoanBOM/acme-xom"
+property uuid "bom-0001"
+package com.acme.loan;
+
+
+public abstract class Party
+{
+    public readonly string name;
+}
+
+public class Borrower extends com.acme.loan.Party implements com.acme.loan.Scored
+        property "ilog.rules.business_documentation" "A person applying for a loan"
+{
+    public int creditScore;
+    public int yearlyIncome
+                property "ilog.rules.business_documentation" "Gross annual income before tax";
+    public double monthlyDebt;
+    public readonly double debtRatio;
+    public com.acme.loan.Grade grade;
+    public boolean frozen;
+    public static int MAX_SCORE;
+    public boolean hasScoreAbove(int threshold);
+    public Borrower(string name, int creditScore);
+}
+
+public interface Scored
+{
+    public int creditScore;
+}
+
+public final class Grade
+        domain {static A, static B, static C}
+{
+    public static final readonly com.acme.loan.Grade A;
+    public static final readonly com.acme.loan.Grade B;
+    public static final readonly com.acme.loan.Grade C;
+}
+
+public class Loan
+{
+    public readonly int amount;
+    public boolean approved;
+    public com.acme.loan.Borrower borrower;
+    public string scoreBand;
+    public readonly java.util.Collection messages domain 0,* class string;
+    public void addToMessages(string arg);
+    public void reject();
+}

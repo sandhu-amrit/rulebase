@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="windows-1252"?>
+<ilog.rules.studio.model.brl:ActionRule xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:ilog.rules.studio.model.brl="http://ilog.rules.studio/model/brl.ecore">
+  <name>vérification héritée</name>
+  <uuid>brl-0004</uuid>
+  <locale>en_US</locale>
+  <definition><![CDATA[if
+    the yearly income of 'the borrower' is less than 1000
+then
+    reject 'the loan' ;]]></definition>
+</ilog.rules.studio.model.brl:ActionRule>
