@@ -100,7 +100,11 @@ All tools are read-only. Each response ends with a `checked` footer giving the i
 
 ## Status (2026-11-25)
 
-Built and tested: every decision above except D17's IBM-parser harness and the parked items. Measured on 5,000 synthetic artifacts (Intel i7-9750H Mac, Node 25):
+Built and tested: every decision above except D17's IBM-parser harness and the parked items.
+
+**Real-world coverage:** 27 public decision services (IBM DecisionsDev samples and ODM projects on GitHub, listed in `HOW-IT-WAS-BUILT.md`). They contain 336 rules and 387 table rows, and 1,675 of 1,678 term uses (99.8%) are linked to the right BOM member, across English, French and Portuguese BAL.
+
+**Scale:** measured on 5,000 synthetic artifacts (Intel i7-9750H Mac, Node 25):
 
 | Target (D15) | Measured |
 |---|---|
@@ -111,7 +115,8 @@ Built and tested: every decision above except D17's IBM-parser harness and the p
 
 ## Known risks
 
-- **No real workspace has been indexed yet.** Fixtures are built by hand from the ODM file formats. `rulebase anonymize` exists so a real workspace can be tested without its business content leaving the machine. It verifies that the copy indexes the same way.
-- **BAL term usage is resolved by matching instantiated phrase patterns,** not a full BAL grammar. The IBM oracle comparison is how mismatches are found.
-- **Project references are read from the Eclipse `.project` file** and from the `.ruleproject` `paths`. This must be confirmed on a real workspace.
-- **The B2X and virtual-BOM format** follows the documented shape. Unknown elements are reported, not ignored.
+- **No large private workspace has been indexed yet.** The biggest public decision service has 35 rules, so scale has only been measured on synthetic data. `rulebase anonymize` exists so a real workspace can be tested without its business content leaving the machine. It verifies that the copy indexes the same way.
+- **BAL term usage is resolved by matching instantiated phrase patterns,** not a full BAL grammar. On the corpus, 3 uses are still not typed: arithmetic inside a phrase, and French `a` used as the verb "has". The IBM oracle comparison (D17) is how the remaining mismatches will be found.
+- **Rule languages are limited to English, French, Portuguese and Spanish.** The word lists live in `src/text.ts` and `src/bal.ts`, and `EXTENDING.md` §4 says how to add a language.
+- **Java (XOM) method bodies are not read** (D11). Impact follows B2X-implemented members to the fields they read, but not Java-implemented methods. A rule calling "the customer is eligible" isn't flagged when a field the Java method reads changes.
+- **Other IBM decision products** (ADS, DSI rule agents) share the project layout. They are detected and reported as unsupported, not read.

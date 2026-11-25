@@ -51,12 +51,44 @@ The design review settled the decisions now in DESIGN.md: a local MCP tool, no U
 
 - **Token patterns, not a BAL grammar.** It's deterministic and fast. The planned IBM-parser comparison (DESIGN D17) is how mismatches will be found.
 - **Untyped uses are kept, marked unresolved.** Impact must not miss a rule; precision is reported in the footer.
-- **mtime and size decide whether a file is re-read.** `--full` re-hashes everything.
+- **mtime and size decide whether a file is re-read.** `--full` re-reads and re-parses everything.
 - **One locale.** Mixing locales put French phrases into an English lexicon.
+
+## Phase 1b (2026-11-25): real workspaces and a review
+
+### Public sample corpus
+
+Rulebase was run against every public Rule Designer workspace that could be found. Each round fixed what it exposed, and added a hand-written fixture case and a test for it.
+
+| Source | Decision services | What they exposed |
+|---|---|---|
+| [DecisionsDev](https://github.com/DecisionsDev): `odm-transformation-advisor`, `odm-javatime`, `odm-libs-in-maven`, `odm-container-samples`, `ODM-AI-toolkit-for-Bob` (8 samples) | 13 | Body-level `domain {…}` (the first enum value was being lost); nested classes; parameter domains; `writeonly`; `@`-names; `#flags`; operators; `.b2xa`; fork/join nodes; classic `<parameters>` and no decision-service flag; unquoted definitions; `{this}.method({0})`; `{0, <hint>}`; brackets around arguments. Term resolution was made strict. |
+| GitHub: [LoanValidation](https://github.com/ArnabMukherjee1991/LoanValidation), [ODMGovernanceAsset](https://github.com/ncrowther/ODMGovernanceAsset), [streamsx.health](https://github.com/IBMStreams/streamsx.health), [ODM_EducaCiencia_Template](https://github.com/perucello/ODM_EducaCiencia_Template), [IA-Hybride](https://github.com/oussemaBenAmor/IA-Hybride), [denim-compute](https://github.com/ibm-cloud-architecture/denim-compute), [athena-owl-demos](https://github.com/AthenaDecisionSystems/athena-owl-demos), [odm-cicd](https://github.com/pberlandier/odm-cicd), [SYRACUSE](https://github.com/jlv91/SYRACUSE), [ICP-Airways](https://github.com/SaifRehman/ICP-Airways), [ibm-odm-support-samples](https://github.com/inukshuk-io/ibm-odm-support-samples) | 14 | French and Portuguese BAL. A French rule yielded zero uses and no error, the worst failure found. Also: a package folder named `output` was skipped; subflows referenced by `Uuid`; `@term#plural`; draft rules; ADS and DSI projects that looked empty. |
+
+After both rounds the corpus gives 336 rules and 1,675 of 1,678 term uses typed. The remaining errors are defects in the repositories themselves.
+
+### Review
+
+An external review looked for confident wrong answers, and all 11 findings were confirmed and fixed. Each has a test in `test/review.test.ts`:
+- stale parses reused across a parser upgrade;
+- build-folder ignore rules that missed real packages;
+- a failed rebuild answering silently from the old index;
+- a class name plus keywords passing validation;
+- a missing verbalization reported as a missing BOM member;
+- bare rule names linking to every same-named rule;
+- "does not run" ignoring operations without a ruleflow;
+- ruleflow conditions never offered as change candidates;
+- two smaller scoring and ambiguity issues.
+
+### Documentation for agents
+
+`AGENTS.md` holds the invariants, the map of which file owns which change, and the done checklist. `docs/EXTENDING.md` holds the recipes, and `.github/copilot-instructions.md` points Copilot at both.
 
 ## Not built yet
 
 - The IBM-parser comparison harness (D17).
+- Reading Java (XOM) method bodies for impact (D11).
+- BAL languages beyond English, French, Portuguese and Spanish.
 - The Decision Center connector and activities.
 - Decision tree structure (trees are indexed as text).
 - Rule overrides and test coverage from real projects.
