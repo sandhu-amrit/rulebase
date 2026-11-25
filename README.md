@@ -11,7 +11,7 @@ When a requirement comes in, the assistant asks Rulebase:
 
 Rulebase never writes rules. A person reviews the proposal and makes the change in Rule Designer or Decision Center.
 
-Design and decisions: [docs/DESIGN.md](docs/DESIGN.md).
+**New here? Start with [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md)**, which goes from install to your first question in about 15 minutes. This README is the reference. Design and decisions are in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Install
 
