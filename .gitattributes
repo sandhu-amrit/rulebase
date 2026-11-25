@@ -1,2 +1,4 @@
 # Fixtures are byte-exact: line endings and encodings are part of what is tested.
 fixtures/** -text
+# Compiled output: committed so `npm install -g github:...` needs no build step. CI checks it matches src/.
+dist/** linguist-generated=true -diff

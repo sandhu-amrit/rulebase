@@ -16,12 +16,12 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "prepare": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --no-warnings=ExperimentalWarning --test \"test/**/*.test.ts\"",
     "bench": "node --expose-gc --experimental-strip-types --no-warnings=ExperimentalWarning bench/bench.ts",
     "rulebase": "node --experimental-strip-types --no-warnings=ExperimentalWarning src/cli.ts",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "check:dist": "npm run build && git diff --exit-code -- dist"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
