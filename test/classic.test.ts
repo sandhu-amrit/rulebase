@@ -5,7 +5,11 @@
  * nested classes, unquoted definitions, slot hints and punctuation in verbalizations.
  */
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
+import { buildWorkspace } from "../src/indexer.ts";
 import { runGates } from "../src/check.ts";
 import { built, CLASSIC } from "./helpers.ts";
 
@@ -77,4 +81,21 @@ test("a bare term without its subject resolves by its words", () => {
   const result = kb.findChangeCandidates({ terms: ["price"] });
   assert.deepEqual(result.requested[0].resolvedTo, ["shop.Item.price"]);
   assert.deepEqual(result.modify.map((item) => item.name), ["cheap items"]);
+});
+
+test("definitions holding a literal are typed (number or text), so they don't count as untyped", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rb-lit-"));
+  fs.cpSync(CLASSIC, dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "ShopRules", "rules", "tiers", "threshold.brl"),
+    `<?xml version="1.0" encoding="UTF-8"?>\n<ilog.rules.studio.model.brl:ActionRule xmlns:ilog.rules.studio.model.brl="http://ilog.rules.studio/model/brl.ecore"><name>threshold</name><uuid>r-9</uuid><locale>en_US</locale><definition><![CDATA[definitions
+    set 'minimum total' to 500 ;
+    set 'label' to "big" ;
+if
+    the total of 'the shopping cart' is more than 'minimum total'
+then
+    set the tier of 'the customer' to Gold ;]]></definition></ilog.rules.studio.model.brl:ActionRule>\n`,
+  );
+  const { kb } = buildWorkspace(dir);
+  assert.ok(!kb.warnings().some((warning) => /definition '(minimum total|label)' could not be typed/.test(warning.message)));
 });

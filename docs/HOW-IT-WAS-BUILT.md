@@ -84,6 +84,10 @@ An external review looked for confident wrong answers, and all 11 findings were 
 
 `AGENTS.md` holds the invariants, the map of which file owns which change, and the done checklist. `docs/EXTENDING.md` holds the recipes, and `.github/copilot-instructions.md` points Copilot at both.
 
+### The skill
+
+`skills/odm-change-analysis/SKILL.md` gives assistants the procedure the MCP tools leave open: which tool answers which question, a done criterion per step, how to read the special results, and the proposal handed to a person. It was checked end to end with a headless Claude Code session on the LoanValidation sample. The skill fired on its own, the tools were called in the intended order, and the proposal was grounded. That run also exposed definitions holding a literal or arithmetic (`set 'minimum score' to 200`) that were not typed; this is now fixed. `test/skill.test.ts` keeps the skill's tool names in step with `src/tools.ts`.
+
 ## Not built yet
 
 - The IBM-parser comparison harness (D17).

@@ -12,6 +12,7 @@
  */
 import { BAL_WORDS, compilePattern, PhraseMatcher, stripArticles, tokenizeBal } from "./bal.js";
 import { RULE_KINDS } from "./model.js";
+import { typeCategory } from "./parse/bom.js";
 import { normalize, splitIdentifier } from "./text.js";
 export function link(input) {
     const warnings = [];
@@ -711,6 +712,12 @@ function withDefinitions(env, artifact, matcher, warnings) {
 }
 /** Type of `a borrower`, `a borrower where ...`, `an item in the items of 'x'`, or a navigation. */
 function expressionType(tokens, env, matcher) {
+    // `set 'minimum score' to 200 ;`, `set 'prefix' to "LN-" ;`: a literal, or arithmetic on literals
+    const meaningful = tokens.filter((token) => !(token.kind === "punct" && token.value === ";"));
+    if (meaningful.length && meaningful.every((token) => token.kind === "number" || token.kind === "op" || (token.kind === "punct" && "()".includes(token.value))))
+        return "number";
+    if (meaningful.length && meaningful.every((token) => token.kind === "string" || (token.kind === "op" && token.value === "+")))
+        return "string";
     const words = [];
     for (const token of tokens) {
         if (token.kind !== "word" || ["where", "in", "from", "with"].includes(token.value))
@@ -723,7 +730,12 @@ function expressionType(tokens, env, matcher) {
             return concept;
     }
     const matches = matcher.match(tokens, env);
-    const nav = matches.find((match) => match.from === 0 && match.compiled.phrase.kind === "navigation");
+    // `0.37 * the yearly income of 'the borrower'`: arithmetic over numeric navigations is a number
+    const arithmetic = tokens.some((token) => token.kind === "op" && "+-*/".includes(token.value));
+    const navigations = matches.filter((match) => match.compiled.phrase.kind === "navigation");
+    if (arithmetic && navigations.length && navigations.every((match) => typeCategory(match.compiled.phrase.type) === "number"))
+        return "number";
+    const nav = navigations.find((match) => match.from === 0);
     return nav?.compiled.phrase.type;
 }
 function usesFromMatch(match, where, text, tokens) {

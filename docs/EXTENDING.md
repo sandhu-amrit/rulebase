@@ -59,6 +59,7 @@ The patterns are language-neutral; the word lists are not.
 2. Register it in `TOOLS` in `src/tools.ts`. The description is written for the model: say when to call it and what it returns. If the workflow changes, update `INSTRUCTIONS`.
 3. Add a case to `test/mcp.test.ts` if the contract changed, and a behaviour test next to the area's other tests.
 4. Document it in the tool table in `README.md` and `docs/DESIGN.md`.
+5. Add it to the skill (`skills/odm-change-analysis/SKILL.md`): to the branch table if it answers a new kind of question, and to "Reading results" if it returns a field the assistant must act on. `test/skill.test.ts` fails until the skill names the tool.
 
 ## 6. New quality gate
 

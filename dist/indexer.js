@@ -12,7 +12,7 @@ import { parseBom } from "./parse/bom.js";
 import { parseVoc } from "./parse/voc.js";
 import { fileContent, scanWorkspace, sha } from "./workspace.js";
 /** Bump when a parser changes output shape, so cached parses are not reused. */
-export const PARSER_VERSION = "11";
+export const PARSER_VERSION = "12";
 export function cacheKey(file) {
     return sha(`${PARSER_VERSION}\u0000${file.project}\u0000${file.path}\u0000${file.packageName}\u0000${file.hash}`);
 }

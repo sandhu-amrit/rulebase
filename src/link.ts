@@ -14,7 +14,7 @@ import { BAL_WORDS, compilePattern, PhraseMatcher, stripArticles, tokenizeBal, t
 import type { Artifact, BomClass, BomMember, Edge, GlossaryEntry, Phrase, ProjectInfo, Variable, Warning } from "./model.ts";
 import { RULE_KINDS } from "./model.ts";
 import type { B2xClass, ParsedB2x } from "./parse/b2x.ts";
-import type { ParsedBom } from "./parse/bom.ts";
+import { typeCategory, type ParsedBom } from "./parse/bom.ts";
 import type { ParsedVoc } from "./parse/voc.ts";
 import { normalize, splitIdentifier } from "./text.ts";
 
@@ -760,6 +760,10 @@ function withDefinitions(env: TypeEnv, artifact: Artifact, matcher: PhraseMatche
 
 /** Type of `a borrower`, `a borrower where ...`, `an item in the items of 'x'`, or a navigation. */
 function expressionType(tokens: Token[], env: TypeEnv, matcher: PhraseMatcher): string | undefined {
+  // `set 'minimum score' to 200 ;`, `set 'prefix' to "LN-" ;`: a literal, or arithmetic on literals
+  const meaningful = tokens.filter((token) => !(token.kind === "punct" && token.value === ";"));
+  if (meaningful.length && meaningful.every((token) => token.kind === "number" || token.kind === "op" || (token.kind === "punct" && "()".includes(token.value)))) return "number";
+  if (meaningful.length && meaningful.every((token) => token.kind === "string" || (token.kind === "op" && token.value === "+"))) return "string";
   const words: string[] = [];
   for (const token of tokens) {
     if (token.kind !== "word" || ["where", "in", "from", "with"].includes(token.value)) break;
@@ -770,7 +774,11 @@ function expressionType(tokens: Token[], env: TypeEnv, matcher: PhraseMatcher): 
     if (concept) return concept;
   }
   const matches = matcher.match(tokens, env);
-  const nav = matches.find((match) => match.from === 0 && match.compiled.phrase.kind === "navigation");
+  // `0.37 * the yearly income of 'the borrower'`: arithmetic over numeric navigations is a number
+  const arithmetic = tokens.some((token) => token.kind === "op" && "+-*/".includes(token.value));
+  const navigations = matches.filter((match) => match.compiled.phrase.kind === "navigation");
+  if (arithmetic && navigations.length && navigations.every((match) => typeCategory(match.compiled.phrase.type) === "number")) return "number";
+  const nav = navigations.find((match) => match.from === 0);
   return nav?.compiled.phrase.type;
 }
 

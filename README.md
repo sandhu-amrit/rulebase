@@ -81,6 +81,31 @@ Every answer ends with `checked`: when the index was built, how many files and r
 | `get_operation_signature` | Operation inputs and outputs with BOM types |
 | `drift` | What changed since the previous index |
 
+## The skill: a procedure for the assistant
+
+The MCP server gives the assistant the tools. The **`odm-change-analysis` skill** ([`skills/odm-change-analysis/SKILL.md`](skills/odm-change-analysis/SKILL.md)) gives it the procedure:
+- which tool to use for which question;
+- how to work a requirement end to end, with a done criterion per step;
+- how to read the special results (`needsVerbalization`, `checked.stale`, rules that don't run, ambiguous names);
+- the shape of the proposal it hands to a person to review.
+
+Without the skill, each session improvises the process.
+
+**Claude Code**, for every project:
+
+```powershell
+# Windows (PowerShell)
+Copy-Item -Recurse skills\odm-change-analysis $HOME\.claude\skills\
+```
+```bash
+# macOS / Linux
+cp -r skills/odm-change-analysis ~/.claude/skills/
+```
+
+Or, for one rule project only, copy it to that project's `.claude/skills/`. It then fires on its own when you ask about an ODM rule change, or you can invoke it with `/odm-change-analysis`.
+
+**GitHub Copilot:** versions with Agent Skills support read skills from a repository's `.github/skills/` folder, so copy the folder to `.github/skills/odm-change-analysis/` in the repo you work in. Without that support, paste the skill's "Requirement" steps into that repo's `.github/copilot-instructions.md`.
+
 ## Command line
 
 ```text
