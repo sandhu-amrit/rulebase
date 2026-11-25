@@ -6,6 +6,7 @@ import { BAL_WORDS, stripArticles, tokenizeBal } from "./bal.js";
 import { RULE_KINDS } from "./model.js";
 import { renderCell } from "./parse/artifacts.js";
 import { typeCategory } from "./parse/bom.js";
+import { analyzeFlow, describePaths, describeTaskSettings } from "./flow.js";
 import { SearchIndex } from "./search.js";
 import { editDistance, normalize, splitIdentifier, stem } from "./text.js";
 const COMPARISON = ["less than", "more than", "greater than", "at least", "at most", "between", "below", "above", "under", "over"];
@@ -23,6 +24,7 @@ export class KnowledgeBase {
     derivedTo = new Map();
     phrasesByMember = new Map();
     rulesByNormalizedName = new Map();
+    flows = new Map();
     constructor(model, meta) {
         this.model = model;
         this.meta = meta;
@@ -82,13 +84,19 @@ export class KnowledgeBase {
             list.push(phrase);
             this.phrasesByMember.set(phrase.memberId, list);
         }
+        for (const artifact of model.artifacts.values()) {
+            if (artifact.type === "ruleflow")
+                this.flows.set(artifact.id, analyzeFlow(artifact));
+        }
         for (const edge of model.edges) {
             if (edge.type === "SELECTS") {
                 const [flow, task] = edge.from.split("#");
                 const map = edge.to.startsWith("pkg:") ? this.selectionByPackage : this.selectionByRule;
                 const key = edge.to.startsWith("pkg:") ? edge.to.slice(4) : edge.to;
                 const list = map.get(key) ?? [];
-                list.push({ flow, task, reason: edge.detail ?? "" });
+                // The reason states the full path condition (every path from the start), not just the last transition.
+                const ambiguous = edge.detail?.includes("ambiguous rule name") ? `; ${edge.detail.slice(edge.detail.indexOf("ambiguous rule name"))}` : "";
+                list.push({ flow, task, reason: `${this.taskReason(flow, task)}${ambiguous}` });
                 map.set(key, list);
             }
             if (edge.type === "RUNS") {
@@ -109,6 +117,31 @@ export class KnowledgeBase {
         }
     }
     // ---------------------------------------------------------------- helpers
+    taskReason(flowId, taskId) {
+        const flow = this.model.artifacts.get(flowId);
+        const analysis = this.flows.get(flowId)?.tasks.get(taskId);
+        const task = flow?.tasks?.find((item) => item.id === taskId);
+        const parts = [`ruleflow '${flow?.name ?? flowId}' task '${taskId}'`];
+        if (task?.filter)
+            parts.push(`filter: ${task.filter}`);
+        if (analysis && !analysis.always)
+            parts.push(`reached when: ${describePaths(analysis)}`);
+        return parts.join("; ");
+    }
+    /** Tasks that select a package: directly, or through a parent package (a task selecting `a` runs `a.b` too). */
+    tasksSelectingPackage(pkg) {
+        const out = [];
+        let current = pkg;
+        while (current) {
+            out.push(...(this.selectionByPackage.get(current) ?? []).map((item) => (current === pkg ? item : { ...item, reason: `${item.reason} (selects parent package '${current}')` })));
+            current = current.includes(".") ? current.slice(0, current.lastIndexOf(".")) : "";
+        }
+        return out;
+    }
+    /** Whether a task can be reached from its ruleflow's start. */
+    taskReachable(flowId, taskId) {
+        return this.flows.get(flowId)?.tasks.get(taskId)?.reachable ?? true;
+    }
     rules() {
         return [...this.model.artifacts.values()].filter((item) => RULE_KINDS.includes(item.type));
     }
@@ -617,13 +650,8 @@ export class KnowledgeBase {
     }
     /** Ruleflow tasks that run a rule, and the operations that run those flows. */
     runPath(artifact) {
-        const selectedBy = [...(this.selectionByRule.get(artifact.id) ?? [])];
-        let pkg = artifact.package;
-        while (pkg) {
-            selectedBy.push(...(this.selectionByPackage.get(pkg) ?? []));
-            pkg = pkg.includes(".") ? pkg.slice(0, pkg.lastIndexOf(".")) : "";
-            // A task that selects a parent package selects its sub-packages too.
-        }
+        // A task that selects a parent package selects its sub-packages too.
+        const selectedBy = [...(this.selectionByRule.get(artifact.id) ?? []), ...(artifact.package ? this.tasksSelectingPackage(artifact.package) : [])];
         const operations = new Set();
         const flows = new Set(selectedBy.map((item) => item.flow));
         const queue = [...flows];
@@ -650,11 +678,16 @@ export class KnowledgeBase {
      */
     runsDescription(artifact) {
         const path = this.runPath(artifact);
-        const lines = path.selectedBy.map((item) => item.reason);
+        const unreachable = path.selectedBy.filter((item) => !this.taskReachable(item.flow, item.task));
+        const lines = path.selectedBy.filter((item) => this.taskReachable(item.flow, item.task)).map((item) => item.reason);
+        for (const item of unreachable) {
+            lines.push(`selected by ruleflow '${this.model.artifacts.get(item.flow)?.name ?? item.flow}' task '${item.task}', which no path from the start reaches`);
+        }
         const allOps = this.operationsRunningAll();
         const anyOperation = [...this.model.artifacts.values()].some((item) => item.type === "decisionOperation");
         const anyFlow = [...this.model.artifacts.values()].some((item) => item.type === "ruleflow");
-        let runs = path.operations.length > 0;
+        const reachableFlows = new Set(path.selectedBy.filter((item) => this.taskReachable(item.flow, item.task)).map((item) => item.flow));
+        let runs = path.operations.length > 0 && reachableFlows.size > 0;
         if (path.selectedBy.length && !path.operations.length && anyOperation) {
             lines.push("but no decision operation runs that ruleflow");
         }
@@ -769,7 +802,7 @@ export class KnowledgeBase {
             .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
             .slice(0, 3)
             .map(([pkg]) => {
-            const tasks = this.selectionByPackage.get(pkg) ?? [];
+            const tasks = this.tasksSelectingPackage(pkg);
             const exemplars = ranked.filter(([id]) => this.model.artifacts.get(id).package === pkg).slice(0, 3).map(([id]) => this.summary(this.model.artifacts.get(id)));
             return {
                 package: pkg,
@@ -894,7 +927,7 @@ export class KnowledgeBase {
         if (artifact.type === "package") {
             for (const rule of this.rules().filter((item) => item.package === artifact.name || item.package.startsWith(`${artifact.name}.`)))
                 add(rule, `in package ${artifact.name}`);
-            const tasks = this.selectionByPackage.get(artifact.name) ?? [];
+            const tasks = this.tasksSelectingPackage(artifact.name);
             for (const task of tasks)
                 add(this.model.artifacts.get(task.flow), task.reason);
             for (const op of new Set(tasks.flatMap((task) => this.flowsRunBy.get(task.flow) ?? [])))
@@ -977,6 +1010,89 @@ export class KnowledgeBase {
             affected: affected.slice(0, MAX),
             ...(affected.length > MAX ? { note: `${affected.length - MAX} more not shown; narrow the target or use find_change_candidates` } : {}),
             checked: this.checked({ unresolvedUses: unresolved, ...(unresolved ? { note: "unresolved uses are included so nothing is missed; their subject could not be typed" } : {}) }),
+        };
+    }
+    /**
+     * The structure of a ruleflow as it runs: tasks in order, what each selects, the conditions on every path
+     * that reaches it, what runs before and after, and which operations (or parent flows) run it.
+     */
+    getRuleflowPaths(input) {
+        const flows = [...this.model.artifacts.values()].filter((item) => item.type === "ruleflow");
+        let chosen = flows;
+        if (input.ruleflow) {
+            const found = this.findArtifact(input.ruleflow);
+            if (found.ambiguous)
+                return { error: `'${input.ruleflow}' matches several artifacts; pass an id.`, matches: found.ambiguous, checked: this.checked() };
+            if (!found.artifact || found.artifact.type !== "ruleflow") {
+                return { error: `No ruleflow '${input.ruleflow}'.`, ruleflows: flows.map((item) => this.summary(item)), checked: this.checked() };
+            }
+            chosen = [found.artifact];
+        }
+        if (!chosen.length) {
+            return { ruleflows: [], note: "This decision service has no ruleflow: an operation without a ruleflow runs every rule.", checked: this.checked() };
+        }
+        const rulesOfTask = (flow, taskId) => {
+            const task = flow.tasks?.find((item) => item.id === taskId);
+            const ids = new Set();
+            for (const pkg of task?.packages ?? []) {
+                for (const rule of this.rules())
+                    if (rule.package === pkg || rule.package.startsWith(`${pkg}.`))
+                        ids.add(rule.id);
+            }
+            for (const edge of this.model.edges)
+                if (edge.type === "SELECTS" && edge.from === `${flow.id}#${taskId}` && !edge.to.startsWith("pkg:"))
+                    ids.add(edge.to);
+            return [...ids];
+        };
+        const result = chosen.map((flow) => {
+            const analysis = this.flows.get(flow.id);
+            const operations = (this.flowsRunBy.get(flow.id) ?? []).map((op) => this.model.artifacts.get(op)?.name ?? op);
+            const calledFrom = this.model.edges
+                .filter((edge) => edge.type === "SUBFLOW" && edge.to === flow.id)
+                .map((edge) => {
+                const [parent, task] = edge.from.split("#");
+                return { ruleflow: this.model.artifacts.get(parent)?.name ?? parent, task, reason: this.taskReason(parent, task) };
+            });
+            const tasks = [...(flow.tasks ?? [])]
+                .map((task) => ({ task, info: analysis.tasks.get(task.id) }))
+                .sort((a, b) => (a.info?.order ?? 1e9) - (b.info?.order ?? 1e9) || a.task.id.localeCompare(b.task.id))
+                .filter((item) => !input.task || item.task.id === input.task)
+                .map(({ task, info }) => {
+                const rules = task.kind === "rule" ? rulesOfTask(flow, task.id) : [];
+                const settings = describeTaskSettings(task);
+                return {
+                    task: task.id,
+                    kind: task.kind,
+                    order: info?.order ?? null,
+                    reachedWhen: info ? describePaths(info) : "unknown",
+                    ...(info && !info.always && info.reachable ? { paths: info.paths } : {}),
+                    ...(task.packages.length ? { selectsPackages: task.packages } : {}),
+                    ...(task.rules.length ? { selectsRules: task.rules } : {}),
+                    ...(task.kind === "rule" ? { rules: rules.length, ruleNames: rules.slice(0, 25).map((id) => this.model.artifacts.get(id)?.name ?? id) } : {}),
+                    ...(task.algorithm ? { algorithm: task.algorithm } : {}),
+                    ...(task.exitCriteria && task.exitCriteria !== "None" ? { exitCriteria: task.exitCriteria } : {}),
+                    ...(task.subflow ? { runsSubflow: this.model.edges.filter((edge) => edge.type === "SUBFLOW" && edge.from === `${flow.id}#${task.id}`).map((edge) => this.model.artifacts.get(edge.to)?.name ?? edge.to) } : {}),
+                    ...(task.actions ? { actions: task.actions } : {}),
+                    ...(settings.length ? { notes: settings } : {}),
+                    next: info?.successors ?? [],
+                    before: info?.before ?? [],
+                    after: info?.after ?? [],
+                };
+            });
+            return {
+                ...this.summary(flow),
+                runBy: operations.length ? operations.map((name) => `operation '${name}'`) : calledFrom.length ? [] : ["no decision operation runs this ruleflow"],
+                ...(calledFrom.length ? { calledFrom } : {}),
+                start: analysis.starts,
+                ...(analysis.unreachable.length ? { unreachable: analysis.unreachable } : {}),
+                ...(analysis.hasCycle ? { note: "the flow has a loop: a transition goes back to an earlier task" } : {}),
+                tasks,
+            };
+        });
+        return {
+            ruleflows: result,
+            legend: "order: steps from the start (tasks with the same order can run on different branches). reachedWhen: the conditions on every path from the start; 'otherwise' is the transition taken when none of its siblings' conditions hold.",
+            checked: this.checked(),
         };
     }
     getOperationSignature(input) {

@@ -74,6 +74,7 @@ All tools are read-only. Each response ends with a `checked` footer giving the i
 | `find_change_candidates` | Given grounded terms (and optionally the original requirement), return candidates: **modify** (rules and rows with reasons), **add** (package plus ruleflow task where a new rule would run, plus similar rules), and **vocabulary gap** |
 | `get_artifact` | Full artifact with provenance, down to rows and cells |
 | `get_impact` | What a change to a rule, package or BOM member touches, including through virtual members |
+| `get_ruleflow_paths` | Tasks in running order, what each selects, the conditions on every path that reaches it, before and after, algorithm and exit-criteria semantics, unreachable tasks, the operations and parent flows that run it |
 | `get_operation_signature` | Inputs and outputs of a decision operation |
 | `drift` | What changed since the previous index |
 

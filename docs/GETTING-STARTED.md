@@ -128,7 +128,7 @@ macOS or Linux:
 claude mcp add rulebase -- rulebase mcp ~/workspaces/LoanDS
 ```
 
-Start a new Claude Code session and type `/mcp`. **rulebase** should show as connected, with 9 tools.
+Start a new Claude Code session and type `/mcp`. **rulebase** should show as connected, with 10 tools.
 
 ### VS Code with GitHub Copilot
 
@@ -184,6 +184,9 @@ Talk to the assistant as you would to a colleague who knows the rule project. Go
 | What a rule does | *"Show me the 'repayment and score' table, rows 3 to 5."* |
 | What a change touches | *"If I change the yearly income field, which rules are affected?"* |
 | Whether a rule runs | *"Does the rule 'legacy check' actually run?"* |
+| How a ruleflow runs | *"Walk me through the main ruleflow: which tasks run, in what order, and under which conditions?"* |
+| A ruleflow change | *"We want a fraud check after validation, only for valid loans. What changes, and what does it do to the rules that run after it?"* |
+| A large requirement | Paste the policy or change request. The assistant splits it into clauses, works each one, then merges them, flagging clauses that conflict. |
 | What changed | *"What changed since the last time you indexed?"* (after a sync) |
 
 For a requirement, expect a **proposal** like this:

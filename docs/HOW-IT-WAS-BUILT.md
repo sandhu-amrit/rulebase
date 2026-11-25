@@ -88,6 +88,17 @@ An external review looked for confident wrong answers, and all 11 findings were 
 
 `skills/odm-change-analysis/SKILL.md` gives assistants the procedure the MCP tools leave open: which tool answers which question, a done criterion per step, how to read the special results, and the proposal handed to a person. It was checked end to end with a headless Claude Code session on the LoanValidation sample. The skill fired on its own, the tools were called in the intended order, and the proposal was grounded. That run also exposed definitions holding a literal or arithmetic (`set 'minimum score' to 200`) that were not typed; this is now fixed. `test/skill.test.ts` keeps the skill's tool names in step with `src/tools.ts`.
 
+### Large requirements and ruleflow changes
+
+- **Large requirements.** `find_change_candidates` ranks by how many of the given terms a rule uses, so passing terms from unrelated clauses together buries the best match for each clause. The skill's `large-requirement.md` splits the work clause by clause and merges by artifact, flagging conflicts, rules that already cover a clause, and order dependencies.
+- **Ruleflow changes.** `src/flow.ts` analyzes each ruleflow: running order (longest path from the start), every path with its conditions, "otherwise" branches, fork/join, loops and unreachable tasks. Complementary branches collapse back into "always". `get_ruleflow_paths` exposes it, `runs` lines now state the full path condition, and a rule selected only by an unreachable task is reported as not running. The skill's `ruleflow-change.md` works a change from the actual paths: rules that start or stop running, changed conditions, changed order, and algorithm semantics.
+
+Both were checked end to end with headless Claude Code sessions on LoanValidation:
+- **A four-clause change request.** The session grounded the vocabulary once and ran each clause on its own. It blocked the clause needing self-employment, which isn't in the vocabulary, and caught that "accept up to 1,500,000" also needs `is at least` changed to `is more than`.
+- **Moving the insurance task before eligibility.** The session found that the insurance table reads the grade that eligibility sets. Moving the task would silently give every loan the default rate, so it proposed dropping one transition condition instead.
+
+The first run also showed `find_change_candidates`' add section disagreeing with the run path about a sub-package selected through its parent. Both now use one lookup, `tasksSelectingPackage`.
+
 ## Not built yet
 
 - The IBM-parser comparison harness (D17).

@@ -63,11 +63,13 @@ The assistant starts the server when the session starts and stops it when the se
    - **add**: where a new rule would have to go to run;
    - **needsVerbalization**: terms that exist in the BOM but have no wording yet (a vocabulary entry is enough);
    - **vocabularyGaps**: terms that don't exist or don't fit together, with the reason (a BOM change, or better phrasing).
-4. **Look closer.** `get_artifact` (full rule, specific rows) and `get_impact`.
+4. **Look closer.** `get_artifact` (full rule, specific rows), `get_impact`, and `get_ruleflow_paths` before any ruleflow change.
+
+A requirement with several clauses is worked clause by clause and then merged, so one clause doesn't bury another's best match. The skill (below) spells this out.
 
 Every answer ends with `checked`: when the index was built, how many files and rules it covers, the branch when known, and any file that could not be read. An unread file can hide a rule, so the assistant should mention it. If the workspace could not be re-indexed after a change, `checked.stale` says so, and the answer comes from the last good index.
 
-"Runs" means: a ruleflow task selects the rule (by package, `package.name` or UUID) and a decision operation runs that ruleflow, or an operation has no ruleflow and so runs every rule.
+"Runs" means: a ruleflow task selects the rule (by package, `package.name` or UUID), some path from the ruleflow's start reaches that task, and a decision operation runs the ruleflow; or an operation has no ruleflow and so runs every rule. The `runs` line names the conditions on every path to the task, not just the last transition.
 
 | Tool | What it returns |
 |---|---|
@@ -78,6 +80,7 @@ Every answer ends with `checked`: when the index was built, how many files and r
 | `find_change_candidates` | `modify`, `add`, `needsVerbalization`, `vocabularyGaps` |
 | `get_artifact` | The rule, table (rows and cells), ruleflow or operation, with every vocabulary use |
 | `get_impact` | What a change to a rule, package, ruleflow, member or phrase touches |
+| `get_ruleflow_paths` | A ruleflow as it runs: tasks in order, what each selects, the conditions on every path that reaches it (including "otherwise" branches), before and after, algorithm and exit criteria explained, unreachable tasks, and who runs the flow |
 | `get_operation_signature` | Operation inputs and outputs with BOM types |
 | `drift` | What changed since the previous index |
 

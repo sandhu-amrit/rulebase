@@ -14,6 +14,7 @@ How to use it for a new requirement:
 2. Write the conditions and actions as BAL-like phrases using only those terms, and check them with validate_phrases. Fix every unknown word and type error before going on.
 3. Call find_change_candidates with the validated terms (phrase texts or member ids) and the original requirement. It returns rules and table rows to modify, where a new rule would have to go to actually run, and vocabulary gaps (a BOM change is needed first).
 4. Use get_artifact for the full rule or the specific table rows, and get_impact for what else a change touches.
+5. Before proposing a ruleflow change, call get_ruleflow_paths: it gives the running order and the conditions on every path to each task.
 
 Every answer ends with "checked": what was indexed, when, and any file that could not be read. Tell the user about errors there; an unread file can hide a rule.
 Never invent vocabulary. If a term is missing, report it as a vocabulary gap.`;
@@ -100,6 +101,17 @@ export const TOOLS: ToolDef[] = [
       target: z.string().min(1).describe("Artifact id/name, package name, member id, class fqn, or phrase text"),
     },
     run: (session, args) => session.kb().getImpact(args as { target: string }),
+  },
+  {
+    name: "get_ruleflow_paths",
+    title: "Ruleflow order and paths",
+    description:
+      "How a ruleflow runs: its tasks in running order; for each task, what it selects (packages, rules, how many rules), the conditions on every path from the start that reaches it (including 'otherwise' branches), what runs before and after it, its algorithm and exit criteria explained, and subflows. Also the operations or parent ruleflows that run it, and tasks that can never be reached. Use it before proposing any ruleflow change (adding, moving or removing a task, changing a transition or a selection), and to check what a change does to the order.",
+    input: {
+      ruleflow: z.string().optional().describe("Ruleflow name or id; omit to get every ruleflow"),
+      task: z.string().optional().describe("Only this task"),
+    },
+    run: (session, args) => session.kb().getRuleflowPaths(args as { ruleflow?: string; task?: string }),
   },
   {
     name: "get_operation_signature",

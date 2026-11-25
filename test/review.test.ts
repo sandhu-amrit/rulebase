@@ -125,3 +125,20 @@ test("minor: every term that reaches a member gets credit; a package and a rule 
   assert.equal(found.artifact, undefined);
   assert.deepEqual(found.ambiguous?.map((item) => item.type).sort(), ["actionRule", "package"]);
 });
+
+test("a sub-package is selected through its parent everywhere: run path, add suggestions, package impact", () => {
+  const dir = tempDir();
+  copyTree(ACME, path.join(dir, "ws"));
+  const flow = path.join(dir, "ws", "LoanDS", "rules", "main.rfl");
+  // the 'score' task now selects the parent package only
+  fs.writeFileSync(flow, fs.readFileSync(flow, "utf8").replace('<Package Name="eligibility.scoring"/>', '<Package Name="eligibility"/>'));
+  const { kb } = buildWorkspace(path.join(dir, "ws"));
+  const rule = kb.findArtifact("minimum score").artifact!;
+  assert.equal(rule.package, "eligibility.scoring");
+  assert.ok(kb.runsDescription(rule).runs);
+  const add = kb.findChangeCandidates({ terms: ["the debt ratio of the borrower"] }).add.find((item) => item.package === "eligibility.scoring");
+  assert.ok(add && add.selectedBy.length > 0 && !("warning" in add), JSON.stringify(add));
+  assert.match(add!.selectedBy[0], /selects parent package 'eligibility'/);
+  const impact = kb.getImpact({ target: "eligibility.scoring" }) as { affected: { artifact: { type: string } }[] };
+  assert.ok(impact.affected.some((item) => item.artifact.type === "ruleflow"));
+});

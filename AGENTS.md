@@ -28,6 +28,7 @@ The pipeline is: scan → parse (pure, one file at a time, cached) → link (one
 | What a tool answers | `src/kb.ts` | Keep answers small: summaries plus ids, and `get_artifact` for detail. |
 | A tool's name, description or input schema (the MCP contract) | `src/tools.ts` | A breaking change bumps the major version in `package.json` and `src/version.ts`. |
 | How an assistant should use the tools (the procedure) | `skills/odm-change-analysis/SKILL.md`, plus the short `INSTRUCTIONS` in `src/tools.ts` | When a tool or a result field is added, renamed or changes meaning, update both. `test/skill.test.ts` catches tool names that drift. |
+| Ruleflow order, reachability and path conditions | `src/flow.ts` (pure analysis), used by `src/kb.ts` | Conditions are BAL text and are not evaluated. An unconditioned transition beside conditioned ones is "otherwise". |
 | Freshness, watching, incremental rebuild | `src/session.ts`, `src/indexer.ts` | |
 | The cache | `src/store.ts` | It is disposable: on a schema change, bump `SCHEMA_VERSION`. |
 | Quality gates and the HTML report | `src/check.ts`, `src/report.ts` | |
