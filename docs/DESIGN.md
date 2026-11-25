@@ -98,9 +98,20 @@ All tools are read-only. Each response ends with a `checked` footer giving the i
 - Embeddings.
 - A hosted or multi-user service.
 
+## Status (2026-11-25)
+
+Built and tested: every decision above except D17's IBM-parser harness and the parked items. Measured on 5,000 synthetic artifacts (Intel i7-9750H Mac, Node 25):
+
+| Target (D15) | Measured |
+|---|---|
+| Full index < 30 s | 5–6 s |
+| Incremental < 2 s | 0.7–0.9 s |
+| Query p95 < 50 ms | under 10 ms |
+| Memory < 300 MB | about 300 MB RSS in a fresh server process (81 MB heap); at the line, and platform-dependent |
+
 ## Known risks
 
-- **No real workspace has been indexed yet.** Fixtures are built by hand from the ODM file formats. `rulebase anonymize` exists so a real workspace can be tested without its business content leaving the machine.
+- **No real workspace has been indexed yet.** Fixtures are built by hand from the ODM file formats. `rulebase anonymize` exists so a real workspace can be tested without its business content leaving the machine. It verifies that the copy indexes the same way.
 - **BAL term usage is resolved by matching instantiated phrase patterns,** not a full BAL grammar. The IBM oracle comparison is how mismatches are found.
 - **Project references are read from the Eclipse `.project` file** and from the `.ruleproject` `paths`. This must be confirmed on a real workspace.
 - **The B2X and virtual-BOM format** follows the documented shape. Unknown elements are reported, not ignored.

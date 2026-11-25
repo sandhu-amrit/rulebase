@@ -1,75 +1,63 @@
 # How it was built
 
-This is the record of how the repo got to its current shape, so a later change can see what was chosen and why.
+A record of how the repo got to its current shape, so a later change can see what was chosen and why. The decisions themselves are in [DESIGN.md](DESIGN.md).
 
-## Starting point
+## Phase 0 (2026-11-20): proof of concept
 
-The brief was a knowledge base for existing IBM ODM rule apps, used by agents that incorporate future requirements. The design called for structured artifacts, a BOM, decision-service boundaries, a relationship graph, hybrid search, a synonym layer, provenance, and quality gates. The preference was the Rule Model API or DAIF. The practical start was a deterministic parser of a Rule Designer project, proved on a tutorial before a pilot.
+The first version proved the idea on IBM's Miniloan sample: a deterministic parser for Rule Designer XML, BM25 plus a hashed vector, a curated glossary, impact through ruleflow selection, SQLite snapshots, a browser workbench, an HTTP API and DAIF ingest. It was built inside an app-builder template, which brought auth, Postgres, PWA and preview scaffolding.
 
-## What was parsed
+A review on 2026-11-24 measured it against what other developers would need:
 
-Real Miniloan files from DecisionsDev/odm-on-cloud-getting-started were used as the fixture, under the Apache-2.0 license that ships with them. The formats:
+- **Scale.** At 1,000 artifacts a reindex took 27 s, 24 s of it the recall gate running a full search per rule. At 5,000 artifacts it took about 10 minutes. Search scanned every document per query. Each reindex stored a full 15 MB copy.
+- **Accuracy.**
+  - 11 of 11 valid paraphrased requirements were rejected: numbers, comparison words and inflections counted as unknown vocabulary.
+  - 2 of 7 nonsense requirements were accepted, because nothing checked types.
+  - `com.x.y` BOM packages collapsed every class into one, and the BOM regex missed `extends`, `implements`, statics and domains.
+  - `.ruleproject` files were never read by the CLI.
+  - The eval set was one positive case, two negative ones and one search query.
+- **Fit.** 55 of 56 dependencies belonged to the template or the UI. The ODM tests did not run under `npm test`.
 
-| Extension | Artifact |
-|---|---|
-| `.brl` | Action rule, BAL in a definition element |
-| `.dta` | Decision table, nested partitions |
-| `.dtr` `.fct` `.trl` | Decision tree, function, technical rule (typed; parsed as BAL-shaped when present) |
-| `.rfl` | Ruleflow: start, rule, action, subflow, stop tasks, transitions, selection |
-| `.dop` | Decision operation and the ruleflow it runs |
-| `.var` | Variable set / ruleset parameters |
-| `.bom` `.voc` | Model and English verbalizations |
-| `.rulepackage` `.ruleproject` | Package and project |
+## Phase 1 (2026-11-24 and 25): the rebaseline
 
-`fast-xml-parser` is configured to treat repeating tags as arrays and to keep CDATA. Package names are derived from the path under `rules/`. BAL is split on `definitions` / `if` / `then` / `else`. Table rows are walked through nested partitions. Ruleflow tasks record the packages and rules they select, plus any filter text.
+The design review settled the decisions now in DESIGN.md: a local MCP tool, no UI, the assistant does language while Rulebase validates, SQLite as a disposable cache, full BOM and virtual-BOM fidelity, Windows first. The work, in commit order:
 
-Verbalizations with `{this}` are instantiated against the matching parameter ("the borrower", and so on). `{0}` style slots become a wildcard in the match pattern.
+1. **Removed the template, UI, HTTP API and DAIF.** All remain in history.
+2. **Rebuilt the pipeline around a workspace.**
+   - Discovery follows project references.
+   - The BOM parser is a statement scanner.
+   - B2X marks virtual members and what they are computed from.
+   - The vocabulary resolves owners by the longest class prefix, in one locale.
+   - BAL matching uses typed token patterns.
+   - Nine read-only tools sit on top, each answer ending in a `checked` footer.
+3. **Made it fast without dropping checks.**
+   - Unchanged files are not re-read.
+   - Term matching is reused per artifact while the vocabulary is unchanged.
+   - Phrases are indexed on two-word anchors.
+   - Table cells keep values only.
+   - The XML parser no longer builds a path string per element.
+   - The recall gate moved to `rulebase check`.
+4. **Added `rulebase anonymize` and cross-platform CI.**
 
-## Index
+### What was measured, and how
 
-`buildKnowledgeBase` parses the files, instantiates terms, links the graph, and builds the search index.
+- `npm test`: parser units, both fixtures, the accuracy cases (the phase 0 failures are now tests), the incremental cache and drift, a real MCP client over stdio, and the anonymizer.
+- `npm run bench -- 5000`, on an Intel i7-9750H Mac with Node 25:
+  - full index 5–6 s;
+  - incremental 0.7–0.9 s;
+  - every query p95 under 10 ms;
+  - a fresh server process at about 300 MB RSS (81 MB heap).
 
-- BM25 over tokenized name, package, BAL, preconditions, column templates, and row summaries.
-- A 128-dimension hashed embedding of the same tokens, for a cosine signal. This is a hashing trick, not a hosted embedding model, so the index has no network dependency.
-- Edges: a package contains its artifacts; a ruleflow selects a package; an artifact uses a term when the instantiated phrase matches; an operation extracts a ruleflow and binds parameters.
+### Choices that were deliberate
 
-## Grounding
-
-`ground` is the agent path:
-
-1. Expand the requirement through the glossary.
-2. Match navigation, action, and parameter phrases.
-3. Any remaining content token that is not in the lexicon is unknown.
-4. Search with the mapped terms.
-5. Impact from the top hit's package.
-6. If unknowns remain, or nothing mapped, reject. Otherwise emit a draft that uses only mapped phrases.
-
-The curated glossary maps phrases such as "over-leveraged", "high dti", and "debt ratio" onto yearly repayment and yearly income. Accepting a proposal in the workbench writes the mapping into the session glossary.
-
-## Store
-
-The first cut kept the index in memory and exported JSON. The durable store is now a single SQLite file via Node 22's `node:sqlite`. No extra database process.
-
-Tables: `snapshots`, `artifacts`, `terms`, `edges`, `glossary`, `feedback`, `meta` (warnings and gates). Artifact and term bodies are JSON, so the full document is recoverable by id. Columns on type, package, and edge source support structural queries without loading every blob.
-
-`npm run reindex` parses a folder, appends a snapshot, and diffs it against the previous snapshot in that file.
-
-## Workbench
-
-A TanStack Start app. The pipeline runs in the browser for the sample (fixtures are bundled with `import.meta.glob`) and for an uploaded Rule Designer folder. The same `buildKnowledgeBase` is what the CLI uses, so the workbench and the reindex cannot disagree about a file.
-
-## Tests and CI
-
-`src/lib/odm/pipeline.test.ts` is the contract for the sample: 3 rules, 1 table with 7 rows and 4 columns, 1 ruleflow selecting eligibility and validation, credit-score grounding, impact that includes the operation, rejection of "vibe", feedback, drift, SQLite round-trip, and all six gates. `.github/workflows/reindex.yml` runs that suite and a sample reindex on changes under `src/lib/odm` or `src/fixtures`.
-
-## Choices that were deliberate
-
-- Rule Designer XML first, not DAIF. It is deterministic and debuggable on a project a team already has in Git.
-- A file database, not Postgres or a vector service, until one decision service is solid.
-- Hashed vectors rather than an embedding API, so reindex is offline.
-- Reject, do not guess, when a token is not in the vocabulary.
-- The workbench is a reference client. The tool names are the API an external agent host should call.
+- **Token patterns, not a BAL grammar.** It's deterministic and fast. The planned IBM-parser comparison (DESIGN D17) is how mismatches will be found.
+- **Untyped uses are kept, marked unresolved.** Impact must not miss a rule; precision is reported in the footer.
+- **mtime and size decide whether a file is re-read.** `--full` re-hashes everything.
+- **One locale.** Mixing locales put French phrases into an English lexicon.
 
 ## Not built yet
 
-Persistent multi-project hosting, DAIF ingest, a real embedding index, override and test-coverage populated from production projects, and a Copilot or watsonx plugin. The schema has room for them. They were left until the Miniloan gates were green.
+- The IBM-parser comparison harness (D17).
+- The Decision Center connector and activities.
+- Decision tree structure (trees are indexed as text).
+- Rule overrides and test coverage from real projects.
+- Writing rules (phase 2).
