@@ -4,7 +4,7 @@ Rulebase is a local, read-only knowledge base over one IBM ODM Rule Designer wor
 
 Accuracy is the first priority. Every answer is either grounded in a source file or says plainly what it could not check.
 
-This document records the decisions agreed on 2026-11-24. Each one says why, so a later change can tell what it would be undoing.
+This document records the design decisions and the reason for each, so a later change can tell what it would be undoing.
 
 ## What it is for
 

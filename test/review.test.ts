@@ -1,6 +1,6 @@
 /**
- * Regression tests for the review of 2026-11-25: places where an agent would have
- * received a confident wrong answer.
+ * Regression tests for places where an agent would have received a confident wrong
+ * answer.
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
