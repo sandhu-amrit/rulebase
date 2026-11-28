@@ -1,0 +1,23 @@
+# Weekly update PRs. Minor and patch bumps are grouped into one PR per ecosystem;
+# majors (TypeScript 7, @types/node beyond the supported Node line) come one at a time.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # @types/node follows the oldest supported Node (engines: >=22.13).
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

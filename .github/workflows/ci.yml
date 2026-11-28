@@ -39,6 +39,20 @@ jobs:
           name: fixture-report
           path: ${{ runner.temp }}/report.html
 
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Formatting matches .prettierrc (npm run format fixes it)
+        run: npm run format:check
+      - name: No high or critical advisories in dependencies
+        run: npm audit --audit-level=high
+
   bench:
     runs-on: ubuntu-latest
     steps:

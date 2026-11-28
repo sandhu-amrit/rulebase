@@ -42,7 +42,7 @@ Every item, in this order:
 
 1. **A failing test first**, in the test file for that area (see **Recipes**). A pattern found in a real workspace gets a hand-written case in a fixture, never copied business content.
 2. If a parser's output changes, **bump `PARSER_VERSION`** in `src/indexer.ts`, so cached parses are not reused.
-3. `npm run typecheck` and `npm test` both pass.
+3. `npm run typecheck`, `npm test` and `npm run format:check` all pass (`npm run format` fixes formatting).
 4. **`npm run build`**, then commit `dist/` together with `src/`. A git install runs `dist/` with no build step, and CI fails if `dist/` doesn't match `src/` (`npm run check:dist`).
 5. For changes to parsing, linking, search or the session: `npm run bench -- 5000` still meets the speed targets in `docs/DESIGN.md` (D15).
 6. **Docs updated wherever behaviour changed.** Every fact has one home:
