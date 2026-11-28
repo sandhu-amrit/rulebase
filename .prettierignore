@@ -1,0 +1,5 @@
+# Compiled by tsc; CI checks it matches src/ byte for byte.
+dist
+# Byte-exact test input: line endings and encodings are under test.
+fixtures
+package-lock.json

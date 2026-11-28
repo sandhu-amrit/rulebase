@@ -6,35 +6,35 @@ The facts about using Rulebase: tools, answers, commands, configuration, what it
 
 The MCP server offers these tools to the assistant. All are read-only.
 
-| Tool | What it returns |
-|---|---|
-| `list_decision_services` | Projects, counts, locale, what was not indexed, every parse error |
-| `list_terms` | Classes, or one class's members with types, virtual flags, what a virtual member is computed from, and phrases |
-| `find_terms` | Fuzzy search over verbalizations, member names, documentation and the team glossary |
-| `validate_phrases` | Unknown words (with suggestions), unknown variables, type errors |
-| `find_change_candidates` | `modify`, `add`, `needsVerbalization`, `vocabularyGaps` (see below) |
-| `get_artifact` | The rule, table (rows and cells), ruleflow or operation, with every vocabulary use |
-| `get_impact` | What a change to a rule, package, ruleflow, member or phrase touches |
-| `get_ruleflow_paths` | A ruleflow as it runs: tasks in order, what each selects, the conditions on every path that reaches it (including "otherwise" branches), before and after, algorithm and exit criteria explained, unreachable tasks, who runs it, and subflow call chains |
-| `get_operation_signature` | Operation inputs and outputs with BOM types |
-| `drift` | What changed since the previous index |
+| Tool                      | What it returns                                                                                                                                                                                                                                           |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_decision_services`  | Projects, counts, locale, what was not indexed, every parse error                                                                                                                                                                                         |
+| `list_terms`              | Classes, or one class's members with types, virtual flags, what a virtual member is computed from, and phrases                                                                                                                                            |
+| `find_terms`              | Fuzzy search over verbalizations, member names, documentation and the team glossary                                                                                                                                                                       |
+| `validate_phrases`        | Unknown words (with suggestions), unknown variables, type errors                                                                                                                                                                                          |
+| `find_change_candidates`  | `modify`, `add`, `needsVerbalization`, `vocabularyGaps` (see below)                                                                                                                                                                                       |
+| `get_artifact`            | The rule, table (rows and cells), ruleflow or operation, with every vocabulary use                                                                                                                                                                        |
+| `get_impact`              | What a change to a rule, package, ruleflow, member or phrase touches                                                                                                                                                                                      |
+| `get_ruleflow_paths`      | A ruleflow as it runs: tasks in order, what each selects, the conditions on every path that reaches it (including "otherwise" branches), before and after, algorithm and exit criteria explained, unreachable tasks, who runs it, and subflow call chains |
+| `get_operation_signature` | Operation inputs and outputs with BOM types                                                                                                                                                                                                               |
+| `drift`                   | What changed since the previous index                                                                                                                                                                                                                     |
 
 The order the assistant uses them in, and the proposal it hands back, are defined by the `odm-change-analysis` skill (`skills/odm-change-analysis/`).
 
 ## What the answers mean
 
-| In an answer | It means |
-|---|---|
-| `modify` | Rules, table rows or ruleflows to change. A ruleflow appears when a transition condition or task filter uses the terms. |
-| `add` | Where a new rule would have to go to run: the package, and the ruleflow task that selects it. |
-| `needsVerbalization` | The member exists in the BOM but has no wording. A vocabulary entry is enough; no BOM change. |
-| `vocabularyGaps` | The term doesn't exist, or its words don't fit together (`why` says which). A BOM or vocabulary change comes first. |
-| `resolved: false`, "subject not typed", "possible" | A likely match Rulebase couldn't confirm. Kept so nothing is missed; check it. |
-| "does not run" | No reachable ruleflow task that an operation runs selects the rule. Changing it has no effect. |
-| "ambiguous" | Several artifacts share a name. Every match is listed; pick one by id. |
-| `moreRows`, `total` larger than the list | The list is capped; ask for specific rows or narrow the target. |
-| `checked` | On every answer: when the index was built, files and rules covered, the branch when known, and every file that couldn't be read. An unread file can hide a rule. |
-| `checked.stale` | The workspace couldn't be re-indexed after a change. The answer comes from the last good index. |
+| In an answer                                       | It means                                                                                                                                                         |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `modify`                                           | Rules, table rows or ruleflows to change. A ruleflow appears when a transition condition or task filter uses the terms.                                          |
+| `add`                                              | Where a new rule would have to go to run: the package, and the ruleflow task that selects it.                                                                    |
+| `needsVerbalization`                               | The member exists in the BOM but has no wording. A vocabulary entry is enough; no BOM change.                                                                    |
+| `vocabularyGaps`                                   | The term doesn't exist, or its words don't fit together (`why` says which). A BOM or vocabulary change comes first.                                              |
+| `resolved: false`, "subject not typed", "possible" | A likely match Rulebase couldn't confirm. Kept so nothing is missed; check it.                                                                                   |
+| "does not run"                                     | No reachable ruleflow task that an operation runs selects the rule. Changing it has no effect.                                                                   |
+| "ambiguous"                                        | Several artifacts share a name. Every match is listed; pick one by id.                                                                                           |
+| `moreRows`, `total` larger than the list           | The list is capped; ask for specific rows or narrow the target.                                                                                                  |
+| `checked`                                          | On every answer: when the index was built, files and rules covered, the branch when known, and every file that couldn't be read. An unread file can hide a rule. |
+| `checked.stale`                                    | The workspace couldn't be re-indexed after a change. The answer comes from the last good index.                                                                  |
 
 **When does a rule run?** A ruleflow task selects it (by package, `package.name` or UUID). Some path from the ruleflow's start reaches that task. A decision operation runs the ruleflow, directly or as a subflow, through calling tasks that are themselves reachable, at any depth. Alternatively, an operation without a ruleflow runs every rule. The `runs` line names the conditions on every path to the task and, for a subflow, the chain of calling tasks with their conditions.
 
@@ -58,9 +58,9 @@ rulebase clean [<workspace> | --all]     delete the cache
 Most workspaces need none. `rulebase.yaml` in the workspace folder overrides the defaults:
 
 ```yaml
-decisionService: LoanDS   # when the workspace has more than one
-exclude: [OldDS]          # projects to leave out
-locale: en_US             # vocabulary locale (default: the one most rules use)
+decisionService: LoanDS # when the workspace has more than one
+exclude: [OldDS] # projects to leave out
+locale: en_US # vocabulary locale (default: the one most rules use)
 glossary: rulebase.glossary.yaml
 ```
 
@@ -80,16 +80,16 @@ An entry that points at a term which no longer exists is reported as an error.
 
 ## What is read
 
-| File | What Rulebase takes from it |
-|---|---|
-| `.ruleproject`, `.project` | Project name, decision-service flag, source and BOM folders, project references, and ruleset parameters (classic projects) |
-| `.brl` | Action rules: definitions / if / then / else, status, dates, properties |
-| `.dta` | Decision tables: columns, nested partitions, rows and cells, preconditions. The row count is cross-checked. |
-| `.rfl` | Ruleflows: every task and node type (fork, join, branch), package and rule selection (by name or UUID), filters, transitions with conditions, subflows |
-| `.dop`, `.var` | Decision operations and their signature, ruleset parameters |
+| File                            | What Rulebase takes from it                                                                                                                                                                                                                 |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.ruleproject`, `.project`      | Project name, decision-service flag, source and BOM folders, project references, and ruleset parameters (classic projects)                                                                                                                  |
+| `.brl`                          | Action rules: definitions / if / then / else, status, dates, properties                                                                                                                                                                     |
+| `.dta`                          | Decision tables: columns, nested partitions, rows and cells, preconditions. The row count is cross-checked.                                                                                                                                 |
+| `.rfl`                          | Ruleflows: every task and node type (fork, join, branch), package and rule selection (by name or UUID), filters, transitions with conditions, subflows                                                                                      |
+| `.dop`, `.var`                  | Decision operations and their signature, ruleset parameters                                                                                                                                                                                 |
 | `.bom`, `.voc`, `.b2x`, `.b2xa` | Classes (fully qualified, nested, inheritance); members with types (attributes, methods and overloads, constructors, conversion operators, statics, domains); verbalizations in one locale; virtual classes and members with their B2X code |
-| `.trl`, `.fct` | Technical rules and functions (IRL): class patterns, member access, setters |
-| `.dtr` | Decision trees, indexed as text (node structure is not modelled yet) |
+| `.trl`, `.fct`                  | Technical rules and functions (IRL): class patterns, member access, setters                                                                                                                                                                 |
+| `.dtr`                          | Decision trees, indexed as text (node structure is not modelled yet)                                                                                                                                                                        |
 
 Templates, queries, `.metadata`, and projects the decision service does not reference are counted, not indexed. Anything that cannot be read is reported by path and line.
 
@@ -115,11 +115,11 @@ Templates, queries, `.metadata`, and projects the decision service does not refe
 
 Measured with `npm run bench -- 5000` (a synthetic workspace of 5,000 artifacts and 65k table rows) on an Intel i7-9750H Mac with Node 25:
 
-| | Target | Measured |
-|---|---|---|
-| Full index | < 30 s | 5–6 s |
-| Incremental (one file changed) | < 2 s | 0.7–0.9 s |
-| Query p95 | < 50 ms | under 10 ms for every tool |
-| Memory (fresh server process) | < 300 MB | about 300 MB RSS, 81 MB heap |
+|                                | Target   | Measured                     |
+| ------------------------------ | -------- | ---------------------------- |
+| Full index                     | < 30 s   | 5–6 s                        |
+| Incremental (one file changed) | < 2 s    | 0.7–0.9 s                    |
+| Query p95                      | < 50 ms  | under 10 ms for every tool   |
+| Memory (fresh server process)  | < 300 MB | about 300 MB RSS, 81 MB heap |
 
 At 1,000 artifacts a fresh server uses about 170 MB. `rulebase check` at 5,000 artifacts takes about 9 s, mostly the recall gate.

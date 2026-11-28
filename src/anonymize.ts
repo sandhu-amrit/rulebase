@@ -25,28 +25,150 @@ import { scanWorkspace } from "./workspace.ts";
 const KEEP = new Set([
   ...BAL_WORDS,
   // BAL structure
-  "definitions", "if", "then", "else", "this", "true", "false", "null", "print", "make", "set", "to", "add", "remove", "is", "not",
+  "definitions",
+  "if",
+  "then",
+  "else",
+  "this",
+  "true",
+  "false",
+  "null",
+  "print",
+  "make",
+  "set",
+  "to",
+  "add",
+  "remove",
+  "is",
+  "not",
   // BOM and Java / IRL syntax
-  "public", "protected", "private", "class", "interface", "extends", "implements", "readonly", "static", "final", "abstract", "package",
-  "property", "domain", "void", "int", "long", "short", "byte", "double", "float", "boolean", "char", "string", "java", "lang", "util",
-  "math", "object", "integer", "big", "decimal", "date", "collection", "list", "vector", "array", "hash", "map", "return", "new", "when",
-  "evaluate", "insert", "retract", "update", "modify", "bind", "get", "is", "has", "irl", "bal", "xom", "platform", "ilog", "rules",
-  "com", "ibm", "engine", "dataio", "for", "conversion", "factory", "ignore", "business", "documentation", "origin", "uuid", "load",
-  "getter", "setter", "as", "properties",
+  "public",
+  "protected",
+  "private",
+  "class",
+  "interface",
+  "extends",
+  "implements",
+  "readonly",
+  "static",
+  "final",
+  "abstract",
+  "package",
+  "property",
+  "domain",
+  "void",
+  "int",
+  "long",
+  "short",
+  "byte",
+  "double",
+  "float",
+  "boolean",
+  "char",
+  "string",
+  "java",
+  "lang",
+  "util",
+  "math",
+  "object",
+  "integer",
+  "big",
+  "decimal",
+  "date",
+  "collection",
+  "list",
+  "vector",
+  "array",
+  "hash",
+  "map",
+  "return",
+  "new",
+  "when",
+  "evaluate",
+  "insert",
+  "retract",
+  "update",
+  "modify",
+  "bind",
+  "get",
+  "is",
+  "has",
+  "irl",
+  "bal",
+  "xom",
+  "platform",
+  "ilog",
+  "rules",
+  "com",
+  "ibm",
+  "engine",
+  "dataio",
+  "for",
+  "conversion",
+  "factory",
+  "ignore",
+  "business",
+  "documentation",
+  "origin",
+  "uuid",
+  "load",
+  "getter",
+  "setter",
+  "as",
+  "properties",
   // ODM folder names and file roles
-  "bom", "deployment", "templates", "queries", "resources", "output", "var", "voc", "brl", "dta", "rfl", "dop", "b2x", "trl", "dtr", "fct",
+  "bom",
+  "deployment",
+  "templates",
+  "queries",
+  "resources",
+  "output",
+  "var",
+  "voc",
+  "brl",
+  "dta",
+  "rfl",
+  "dop",
+  "b2x",
+  "trl",
+  "dtr",
+  "fct",
 ]);
 
 /** Elements whose text is never business content. */
-const SKIP_TEXT = new Set(["uuid", "locale", "outputLocation", "categories", "status", "priority", "Property", "effectiveDate", "expirationDate"]);
+const SKIP_TEXT = new Set([
+  "uuid",
+  "locale",
+  "outputLocation",
+  "categories",
+  "status",
+  "priority",
+  "Property",
+  "effectiveDate",
+  "expirationDate",
+]);
 /** Elements whose `Name` attribute is a technical key (UI properties, layout data), not a business name. */
 const KEY_ELEMENTS = new Set(["Property", "Data"]);
 /** Attributes that carry business names. */
 const MAP_ATTRS = new Set([
-  "Name", "name", "variableName", "verbalization", "type", "ruleflowName", "rulesetName", "targetRuleProjectName", "variableSetName",
-  "href", "url", "origin", "initialValue",
+  "Name",
+  "name",
+  "variableName",
+  "verbalization",
+  "type",
+  "ruleflowName",
+  "rulesetName",
+  "targetRuleProjectName",
+  "variableSetName",
+  "href",
+  "url",
+  "origin",
+  "initialValue",
   // Ruleflow task and node ids are often business names; they are mapped the same way wherever they appear.
-  "Identifier", "Task", "Source", "Target",
+  "Identifier",
+  "Task",
+  "Source",
+  "Target",
 ]);
 
 export class Anonymizer {
@@ -86,12 +208,20 @@ export class Anonymizer {
     const re = /\{(?:this|\d+)\}|"((?:[^"\\]|\\.)*)"|[A-Za-zÀ-ɏ][A-Za-z0-9À-ɏ]*|\d+/g;
     return value.replace(re, (token: string, quoted: string | undefined) => {
       if (token.startsWith("{")) return token;
-      if (token.startsWith('"')) return options.strings ? `"${this.string(quoted ?? "")}"` : `"${this.text(quoted ?? "", options)}"`;
-      if (/^\d+$/.test(token)) return options.digits ? token.replace(/\d/g, (digit) => String((Number(digit) * 7 + 3) % 10)) : token;
+      if (token.startsWith('"'))
+        return options.strings
+          ? `"${this.string(quoted ?? "")}"`
+          : `"${this.text(quoted ?? "", options)}"`;
+      if (/^\d+$/.test(token))
+        return options.digits
+          ? token.replace(/\d/g, (digit) => String((Number(digit) * 7 + 3) % 10))
+          : token;
       if (/[a-z][A-Z]/.test(token)) return this.identifier(token);
       const mapped = this.word(token.toLowerCase());
       if (mapped === token.toLowerCase()) return token;
-      return token[0] === token[0].toUpperCase() ? mapped[0].toUpperCase() + mapped.slice(1) : mapped;
+      return token[0] === token[0].toUpperCase()
+        ? mapped[0].toUpperCase() + mapped.slice(1)
+        : mapped;
     });
   }
 
@@ -111,7 +241,8 @@ export class Anonymizer {
     let stem = dot > 0 ? segment.slice(0, dot) : segment;
     // `model_en_US.voc`: the locale suffix is how the vocabulary is chosen; keep it.
     let locale = "";
-    const match = ext.toLowerCase() === ".voc" ? /(_[a-z]{2,3}(?:_[A-Z]{2})?(?:_\w+)?)$/.exec(stem) : null;
+    const match =
+      ext.toLowerCase() === ".voc" ? /(_[a-z]{2,3}(?:_[A-Z]{2})?(?:_\w+)?)$/.exec(stem) : null;
     if (match) {
       locale = match[1];
       stem = stem.slice(0, -locale.length);
@@ -127,7 +258,8 @@ export class Anonymizer {
     const mapped = head
       .split("/")
       .map((segment) => {
-        if (!segment || segment === ".." || segment === "." || /^[a-z]+:$/.test(segment)) return segment;
+        if (!segment || segment === ".." || segment === "." || /^[a-z]+:$/.test(segment))
+          return segment;
         const decoded = decodeURIComponent(segment);
         const out = this.pathSegment(decoded);
         return segment.includes("%") ? encodeURIComponent(out) : out;
@@ -165,7 +297,8 @@ export class Anonymizer {
             // Namespaced attributes (xsi:type, xmi:version) are schema, not content.
             if (attr !== localAttr || !MAP_ATTRS.has(localAttr) || !value) return whole;
             if (localAttr === "Name" && KEY_ELEMENTS.has(local)) return whole;
-            if (localAttr === "href" || localAttr === "url" || localAttr === "origin") return `${attr}="${this.reference(value)}"`;
+            if (localAttr === "href" || localAttr === "url" || localAttr === "origin")
+              return `${attr}="${this.reference(value)}"`;
             if (localAttr === "type") return `${attr}="${this.identifier(value)}"`;
             return `${attr}="${this.text(value)}"`;
           });
@@ -177,7 +310,10 @@ export class Anonymizer {
       const next = content.indexOf("<", i);
       const text = content.slice(i, next < 0 ? content.length : next);
       const parent = stack[stack.length - 1] ?? "";
-      out += SKIP_TEXT.has(parent) || !text.trim() ? text : this.text(text, { digits: mode === "bal", strings: true });
+      out +=
+        SKIP_TEXT.has(parent) || !text.trim()
+          ? text
+          : this.text(text, { digits: mode === "bal", strings: true });
       i = next < 0 ? content.length : next;
     }
     return out;
@@ -190,7 +326,12 @@ export class Anonymizer {
         // property keys stay; quoted values are documentation, origins or flags
         const prop = /^(\s*property\s+)("?[\w.$-]+"?)(\s+)"(.*)"(.*)$/.exec(line);
         if (prop) {
-          const value = prop[2].replace(/"/g, "") === "origin" ? this.reference(prop[4]) : /^(true|false|[\w-]{36}|[\d.]+)$/.test(prop[4]) ? prop[4] : this.text(prop[4]);
+          const value =
+            prop[2].replace(/"/g, "") === "origin"
+              ? this.reference(prop[4])
+              : /^(true|false|[\w-]{36}|[\d.]+)$/.test(prop[4])
+                ? prop[4]
+                : this.text(prop[4]);
           return `${prop[1]}${prop[2]}${prop[3]}"${value}"${this.bomCode(prop[5])}`;
         }
         return this.bomCode(line);
@@ -200,7 +341,13 @@ export class Anonymizer {
 
   private bomCode(code: string): string {
     return code.replace(/"(?:[^"\\]|\\.)*"|[A-Za-z_$][\w$.]*/g, (token) => {
-      if (token.startsWith('"')) return token.length > 2 && !/^"(true|false)"$/.test(token) && !/^"ilog\./.test(token) && !/^"factory\./.test(token) ? `"${this.text(token.slice(1, -1))}"` : token;
+      if (token.startsWith('"'))
+        return token.length > 2 &&
+          !/^"(true|false)"$/.test(token) &&
+          !/^"ilog\./.test(token) &&
+          !/^"factory\./.test(token)
+          ? `"${this.text(token.slice(1, -1))}"`
+          : token;
       return token
         .split(".")
         .map((part) => this.identifier(part))
@@ -224,7 +371,9 @@ export class Anonymizer {
         const suffix = hash >= 0 ? key.slice(hash) : "";
         const mappedOwner = owner.replace(/[A-Za-z_$][\w$]*/g, (part) => this.identifier(part));
         // Decode \uXXXX first so an escaped letter is mapped with its word; the output is UTF-8.
-        const decoded = value.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
+        const decoded = value.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) =>
+          String.fromCharCode(parseInt(hex, 16)),
+        );
         return `${mappedOwner}${suffix}=${this.text(decoded)}`;
       })
       .join("\n");
@@ -242,7 +391,8 @@ export interface AnonymizeResult {
 export function anonymizeWorkspace(source: string, out: string): AnonymizeResult {
   const input = path.resolve(source);
   const target = path.resolve(out);
-  if (fs.existsSync(target) && fs.readdirSync(target).length) throw new Error(`Output folder is not empty: ${target}`);
+  if (fs.existsSync(target) && fs.readdirSync(target).length)
+    throw new Error(`Output folder is not empty: ${target}`);
   const scan = scanWorkspace(input);
   // When pointed at a project folder, the workspace is its parent; paths are relative to that.
   const root = scan.root;
@@ -254,7 +404,11 @@ export function anonymizeWorkspace(source: string, out: string): AnonymizeResult
       ? rel
       : rel
           .split("/")
-          .map((segment) => (["rules", "bom", "deployment"].includes(segment) ? segment : anonymizer.pathSegment(segment)))
+          .map((segment) =>
+            ["rules", "bom", "deployment"].includes(segment)
+              ? segment
+              : anonymizer.pathSegment(segment),
+          )
           .join("/");
     const full = path.join(target, mappedRel);
     fs.mkdirSync(path.dirname(full), { recursive: true });
@@ -266,7 +420,11 @@ export function anonymizeWorkspace(source: string, out: string): AnonymizeResult
       const file = path.join(root, folder, name);
       if (!fs.existsSync(file)) continue;
       const decoded = decodeBytes(fs.readFileSync(file));
-      write(path.posix.join(folder === "." ? "" : folder, name), anonymizer.xml(decoded.text, "plain"), decoded.encoding);
+      write(
+        path.posix.join(folder === "." ? "" : folder, name),
+        anonymizer.xml(decoded.text, "plain"),
+        decoded.encoding,
+      );
     }
   }
   for (const file of scan.files) {
@@ -276,7 +434,11 @@ export function anonymizeWorkspace(source: string, out: string): AnonymizeResult
     if (ext === ".bom") text = anonymizer.bom(decoded.text);
     else if (ext === ".voc") text = anonymizer.voc(decoded.text);
     else if (ext === ".b2x") text = anonymizer.xml(decoded.text, "plain");
-    else text = anonymizer.xml(decoded.text, ext === ".rulepackage" || ext === ".var" || ext === ".dop" ? "plain" : "bal");
+    else
+      text = anonymizer.xml(
+        decoded.text,
+        ext === ".rulepackage" || ext === ".var" || ext === ".dop" ? "plain" : "bal",
+      );
     write(file.path, text, decoded.encoding);
   }
   const config = path.join(root, "rulebase.yaml");
@@ -284,29 +446,64 @@ export function anonymizeWorkspace(source: string, out: string): AnonymizeResult
     // Keys stay, values are mapped (decisionService, include/exclude project names, glossary path).
     const data = parseYaml(fs.readFileSync(config, "utf8")) as Record<string, unknown>;
     const mapValue = (value: unknown, key: string): unknown =>
-      Array.isArray(value) ? value.map((item) => mapValue(item, key)) : typeof value === "string" && key !== "locale" ? anonymizer.text(value) : value;
-    write("rulebase.yaml", stringifyYaml(Object.fromEntries(Object.entries(data ?? {}).map(([key, value]) => [key, mapValue(value, key)]))), "utf-8");
+      Array.isArray(value)
+        ? value.map((item) => mapValue(item, key))
+        : typeof value === "string" && key !== "locale"
+          ? anonymizer.text(value)
+          : value;
+    write(
+      "rulebase.yaml",
+      stringifyYaml(
+        Object.fromEntries(
+          Object.entries(data ?? {}).map(([key, value]) => [key, mapValue(value, key)]),
+        ),
+      ),
+      "utf-8",
+    );
   }
   const glossary = path.join(root, "rulebase.glossary.yaml");
   if (fs.existsSync(glossary)) {
-    const text = fs.readFileSync(glossary, "utf8").replace(/(com\.[\w.$()]+)|("[^"]*")|([A-Za-z][\w-]*)/g, (token, fqn: string | undefined, quoted: string | undefined) => {
-      if (fqn) return fqn.split(".").map((part) => anonymizer.identifier(part)).join(".");
-      if (quoted) return `"${anonymizer.text(quoted.slice(1, -1))}"`;
-      return ["phrase", "means", "note", "terms"].includes(token) ? token : anonymizer.text(token);
-    });
+    const text = fs
+      .readFileSync(glossary, "utf8")
+      .replace(
+        /(com\.[\w.$()]+)|("[^"]*")|([A-Za-z][\w-]*)/g,
+        (token, fqn: string | undefined, quoted: string | undefined) => {
+          if (fqn)
+            return fqn
+              .split(".")
+              .map((part) => anonymizer.identifier(part))
+              .join(".");
+          if (quoted) return `"${anonymizer.text(quoted.slice(1, -1))}"`;
+          return ["phrase", "means", "note", "terms"].includes(token)
+            ? token
+            : anonymizer.text(token);
+        },
+      );
     write("rulebase.glossary.yaml", text, "utf-8");
   }
 
   const original = buildWorkspace(input).kb;
-  const anonymizedInput = input === root ? target : path.join(target, anonymizer.pathSegment(path.basename(input)));
+  const anonymizedInput =
+    input === root ? target : path.join(target, anonymizer.pathSegment(path.basename(input)));
   const anonymized = buildWorkspace(anonymizedInput).kb;
-  const comparison = shape(original).map(([metric, value], index) => ({ metric, original: value, anonymized: shape(anonymized)[index][1] }));
-  return { out: anonymizedInput, files, words: anonymizer["words"].size, comparison, ok: comparison.every((row) => row.original === row.anonymized) };
+  const comparison = shape(original).map(([metric, value], index) => ({
+    metric,
+    original: value,
+    anonymized: shape(anonymized)[index][1],
+  }));
+  return {
+    out: anonymizedInput,
+    files,
+    words: anonymizer["words"].size,
+    comparison,
+    ok: comparison.every((row) => row.original === row.anonymized),
+  };
 }
 
 function shape(kb: KnowledgeBase): [string, number][] {
   const counts = new Map<string, number>();
-  for (const artifact of kb.model.artifacts.values()) counts.set(artifact.type, (counts.get(artifact.type) ?? 0) + 1);
+  for (const artifact of kb.model.artifacts.values())
+    counts.set(artifact.type, (counts.get(artifact.type) ?? 0) + 1);
   let uses = 0;
   let resolved = 0;
   for (const list of kb.model.uses.values()) {
@@ -316,9 +513,17 @@ function shape(kb: KnowledgeBase): [string, number][] {
     }
   }
   return [
-    ...["actionRule", "decisionTable", "decisionTree", "technicalRule", "function", "ruleflow", "decisionOperation", "variableSet", "package"].map(
-      (type) => [type, counts.get(type) ?? 0] as [string, number],
-    ),
+    ...[
+      "actionRule",
+      "decisionTable",
+      "decisionTree",
+      "technicalRule",
+      "function",
+      "ruleflow",
+      "decisionOperation",
+      "variableSet",
+      "package",
+    ].map((type) => [type, counts.get(type) ?? 0] as [string, number]),
     ["table rows", kb.rules().reduce((sum, rule) => sum + (rule.rows?.length ?? 0), 0)],
     ["classes", kb.model.classes.size],
     ["members", kb.model.members.size],
@@ -333,7 +538,8 @@ function shape(kb: KnowledgeBase): [string, number][] {
 
 function encodeAs(text: string, encoding: string): Buffer {
   if (encoding === "utf-8") return Buffer.from(text, "utf8");
-  if (encoding === "windows-1252" || encoding === "iso-8859-1" || encoding === "latin1") return Buffer.from(text, "latin1");
+  if (encoding === "windows-1252" || encoding === "iso-8859-1" || encoding === "latin1")
+    return Buffer.from(text, "latin1");
   if (encoding === "utf-16le") return Buffer.from(text, "utf16le");
   return Buffer.from(text, "utf8");
 }

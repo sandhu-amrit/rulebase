@@ -29,8 +29,30 @@ export interface ParsedBom {
   warnings: Warning[];
 }
 
-const CLASS_MODIFIERS = new Set(["public", "protected", "private", "abstract", "final", "static", "strictfp"]);
-const MEMBER_MODIFIERS = new Set(["public", "protected", "private", "static", "final", "readonly", "writeonly", "abstract", "native", "synchronized", "transient", "volatile", "deprecated"]);
+const CLASS_MODIFIERS = new Set([
+  "public",
+  "protected",
+  "private",
+  "abstract",
+  "final",
+  "static",
+  "strictfp",
+]);
+const MEMBER_MODIFIERS = new Set([
+  "public",
+  "protected",
+  "private",
+  "static",
+  "final",
+  "readonly",
+  "writeonly",
+  "abstract",
+  "native",
+  "synchronized",
+  "transient",
+  "volatile",
+  "deprecated",
+]);
 
 interface Statement {
   text: string;
@@ -51,11 +73,21 @@ export function parseBom(content: string, provenance: Provenance, bomEntry: stri
     const text = statement.text.trim();
     const parsed = parseClassHeader(text, scope);
     if (!parsed) {
-      warnings.push({ path: provenance.path, severity: "error", message: `line ${statement.line}: could not read class header '${text.slice(0, 80)}'` });
+      warnings.push({
+        path: provenance.path,
+        severity: "error",
+        message: `line ${statement.line}: could not read class header '${text.slice(0, 80)}'`,
+      });
       return;
     }
     // A nested class keeps its outer class in its name (a.b.Outer.Inner) and the outer's package.
-    const klass: BomClass = { ...parsed, ...(outer ? { packageName: outer.packageName } : {}), virtual: false, provenance: { ...provenance }, bomEntry };
+    const klass: BomClass = {
+      ...parsed,
+      ...(outer ? { packageName: outer.packageName } : {}),
+      virtual: false,
+      provenance: { ...provenance },
+      bomEntry,
+    };
     klass.documentation = documentationOf(klass.properties);
     classes.push(klass);
     for (const memberStatement of statement.body ?? []) {
@@ -67,7 +99,11 @@ export function parseBom(content: string, provenance: Provenance, bomEntry: stri
       }
       const member = parseMember(memberText, klass);
       if (!member) {
-        warnings.push({ path: provenance.path, severity: "error", message: `line ${memberStatement.line}: could not read member of ${klass.fqn}: '${memberText.slice(0, 80)}'` });
+        warnings.push({
+          path: provenance.path,
+          severity: "error",
+          message: `line ${memberStatement.line}: could not read member of ${klass.fqn}: '${memberText.slice(0, 80)}'`,
+        });
         continue;
       }
       if (typeof member === "object" && "domainOnly" in member) {
@@ -98,7 +134,9 @@ export function parseBom(content: string, provenance: Provenance, bomEntry: stri
       currentPackage = pkg[1];
       continue;
     }
-    const prop = /^property\s+("(?:[^"\\]|\\.)*"|[\w.$-]+)\s+("(?:[^"\\]|\\.)*"|\S+)$/.exec(text.replace(/^(#[\w.$]+\s*)+/, ""));
+    const prop = /^property\s+("(?:[^"\\]|\\.)*"|[\w.$-]+)\s+("(?:[^"\\]|\\.)*"|\S+)$/.exec(
+      text.replace(/^(#[\w.$]+\s*)+/, ""),
+    );
     if (prop) {
       properties[unquote(prop[1])] = unquote(prop[2]);
       continue;
@@ -167,7 +205,13 @@ function scan(content: string, path: string, warnings: Warning[]): Statement[] {
   return scanBlock(content, { i: 0, line: 1 }, path, warnings, true);
 }
 
-function scanBlock(content: string, st: { i: number; line: number }, path: string, warnings: Warning[], topLevel: boolean): Statement[] {
+function scanBlock(
+  content: string,
+  st: { i: number; line: number },
+  path: string,
+  warnings: Warning[],
+  topLevel: boolean,
+): Statement[] {
   const out: Statement[] = [];
   let buffer = "";
   let bufferLine = st.line;
@@ -189,7 +233,11 @@ function scanBlock(content: string, st: { i: number; line: number }, path: strin
     if (ch === "\n") {
       st.line++;
       // Top-level `property ...` and `#flag` lines end at the newline (they have no `;`).
-      if (topLevel && /^\s*(property\s|#[\w.$]+\s*$)/.test(buffer) && !/\b(class|interface)\b/.test(buffer)) {
+      if (
+        topLevel &&
+        /^\s*(property\s|#[\w.$]+\s*$)/.test(buffer) &&
+        !/\b(class|interface)\b/.test(buffer)
+      ) {
         flush();
         st.i++;
         continue;
@@ -237,7 +285,12 @@ function scanBlock(content: string, st: { i: number; line: number }, path: strin
     buffer += ch;
     st.i++;
   }
-  if (!topLevel) warnings.push({ path, severity: "error", message: `class body near line ${bufferLine} is not closed` });
+  if (!topLevel)
+    warnings.push({
+      path,
+      severity: "error",
+      message: `class body near line ${bufferLine} is not closed`,
+    });
   flush();
   return out;
 }
@@ -291,13 +344,19 @@ function collapse(text: string): string {
 
 function unquote(value: string): string {
   if (value.startsWith('"') && value.endsWith('"')) {
-    return value.slice(1, -1).replace(/\\(.)/g, (_, c: string) => (c === "n" ? "\n" : c === "t" ? "\t" : c));
+    return value
+      .slice(1, -1)
+      .replace(/\\(.)/g, (_, c: string) => (c === "n" ? "\n" : c === "t" ? "\t" : c));
   }
   return value;
 }
 
 /** Pull `property "k" "v"` clauses and a `domain ...` clause off a header or member. */
-function extractClauses(text: string): { rest: string; properties: Record<string, string>; domain?: string } {
+function extractClauses(text: string): {
+  rest: string;
+  properties: Record<string, string>;
+  domain?: string;
+} {
   const properties: Record<string, string> = {};
   // `#valueType`, `#vocabularyClass`, `#loadGetterSetterAsProperties`: flags, kept as properties.
   let rest = text.replace(/(^|\s)#([\w.$]+)/g, (_, space: string, flag: string) => {
@@ -327,7 +386,10 @@ function parseClassHeader(
   packageName: string,
 ): Omit<BomClass, "virtual" | "provenance" | "bomEntry"> | null {
   const { rest, properties, domain } = extractClauses(header);
-  const match = /^((?:\w+\s+)*)(class|interface)\s+([\w$.]+)(?:\s+extends\s+([\w$.<>, ]+?))?(?:\s+implements\s+([\w$.<>, ]+))?$/.exec(rest);
+  const match =
+    /^((?:\w+\s+)*)(class|interface)\s+([\w$.]+)(?:\s+extends\s+([\w$.<>, ]+?))?(?:\s+implements\s+([\w$.<>, ]+))?$/.exec(
+      rest,
+    );
   if (!match) return null;
   const modifiers = match[1].trim().split(/\s+/).filter(Boolean);
   if (modifiers.some((item) => !CLASS_MODIFIERS.has(item))) return null;
@@ -373,11 +435,17 @@ function stripParameterDomains(text: string): string {
   if (open < 0 || close < open) return text;
   const params = text
     .slice(open + 1, close)
-    .replace(/\s+domain\s+(\{[^}]*\}|\d+\s*,\s*(\*|\d+)(\s+class\s+[\w.$]+)?|\[[^\]]*\]|[^,)]+)/g, "");
+    .replace(
+      /\s+domain\s+(\{[^}]*\}|\d+\s*,\s*(\*|\d+)(\s+class\s+[\w.$]+)?|\[[^\]]*\]|[^,)]+)/g,
+      "",
+    );
   return text.slice(0, open + 1) + params + text.slice(close);
 }
 
-function parseMember(text: string, klass: Pick<BomClass, "fqn" | "name">): BomMember | { domainOnly: string } | null {
+function parseMember(
+  text: string,
+  klass: Pick<BomClass, "fqn" | "name">,
+): BomMember | { domainOnly: string } | null {
   const { rest, properties, domain } = extractClauses(stripParameterDomains(text));
   if (!rest && domain !== undefined) return { domainOnly: domain };
   const paren = rest.indexOf("(");
@@ -397,7 +465,11 @@ function parseMember(text: string, klass: Pick<BomClass, "fqn" | "name">): BomMe
     kind = "method";
     type = words[1];
     name = "operator";
-  } else if (params !== null && words.length === 1 && (words[0] === klass.name || words[0] === klass.fqn)) {
+  } else if (
+    params !== null &&
+    words.length === 1 &&
+    (words[0] === klass.name || words[0] === klass.fqn)
+  ) {
     kind = "constructor";
     type = klass.fqn;
     name = klass.name;
@@ -414,7 +486,12 @@ function parseMember(text: string, klass: Pick<BomClass, "fqn" | "name">): BomMe
   const parsedParams = params ? splitParams(params) : [];
   if (parsedParams === null) return null;
   const signature = parsedParams.map((item) => item.type).join(",");
-  const id = kind === "attribute" ? `${klass.fqn}.${name}` : name === "operator" ? `${klass.fqn}.operator ${type}(${signature})` : `${klass.fqn}.${name}(${signature})`;
+  const id =
+    kind === "attribute"
+      ? `${klass.fqn}.${name}`
+      : name === "operator"
+        ? `${klass.fqn}.operator ${type}(${signature})`
+        : `${klass.fqn}.${name}(${signature})`;
   return {
     id,
     owner: klass.fqn,
@@ -493,14 +570,26 @@ function documentationOf(properties: Record<string, string>): string | undefined
 }
 
 /** BOM primitive and well-known types, used to decide literal compatibility. */
-export function typeCategory(type: string | undefined): "number" | "string" | "boolean" | "date" | "collection" | "object" | "unknown" {
+export function typeCategory(
+  type: string | undefined,
+): "number" | "string" | "boolean" | "date" | "collection" | "object" | "unknown" {
   if (!type) return "unknown";
   const t = type.replace(/<.*>/, "").replace(/\[\]$/, "[]");
   if (t.endsWith("[]")) return "collection";
-  if (/^(int|long|short|byte|double|float|java\.lang\.(Integer|Long|Short|Byte|Double|Float|Number)|java\.math\.Big(Decimal|Integer))$/.test(t)) return "number";
+  if (
+    /^(int|long|short|byte|double|float|java\.lang\.(Integer|Long|Short|Byte|Double|Float|Number)|java\.math\.Big(Decimal|Integer))$/.test(
+      t,
+    )
+  )
+    return "number";
   if (/^(string|java\.lang\.String|char|java\.lang\.Character)$/.test(t)) return "string";
   if (/^(boolean|java\.lang\.Boolean)$/.test(t)) return "boolean";
-  if (/^(java\.util\.Date|java\.time\.\w+|ilog\.rules\.brl\.Time|java\.sql\.(Date|Timestamp))$/.test(t)) return "date";
+  if (
+    /^(java\.util\.Date|java\.time\.\w+|ilog\.rules\.brl\.Time|java\.sql\.(Date|Timestamp))$/.test(
+      t,
+    )
+  )
+    return "date";
   if (/^java\.util\.(Collection|List|Set|ArrayList|HashSet|Vector)$/.test(t)) return "collection";
   return "object";
 }

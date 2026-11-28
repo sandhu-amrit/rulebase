@@ -10,8 +10,28 @@
  *
  * Every step that cannot place something writes a Warning. Nothing is dropped silently.
  */
-import { BAL_WORDS, compilePattern, PhraseMatcher, stripArticles, tokenizeBal, type PatternItem, type PhraseMatch, type Token, type TypeEnv } from "./bal.ts";
-import type { Artifact, BomClass, BomMember, Edge, GlossaryEntry, Phrase, ProjectInfo, Variable, Warning } from "./model.ts";
+import {
+  BAL_WORDS,
+  compilePattern,
+  PhraseMatcher,
+  stripArticles,
+  tokenizeBal,
+  type PatternItem,
+  type PhraseMatch,
+  type Token,
+  type TypeEnv,
+} from "./bal.ts";
+import type {
+  Artifact,
+  BomClass,
+  BomMember,
+  Edge,
+  GlossaryEntry,
+  Phrase,
+  ProjectInfo,
+  Variable,
+  Warning,
+} from "./model.ts";
 import { RULE_KINDS } from "./model.ts";
 import type { B2xClass, ParsedB2x } from "./parse/b2x.ts";
 import { typeCategory, type ParsedBom } from "./parse/bom.ts";
@@ -97,17 +117,32 @@ export function link(input: LinkInput): Linked {
     const xomBacked = Boolean(file.bom.properties.origin);
     for (const klass of file.bom.classes) {
       if (classes.has(klass.fqn)) {
-        warnings.push({ path: file.path, severity: "error", message: `class ${klass.fqn} is also defined in ${classes.get(klass.fqn)?.provenance.path}; keeping the first` });
+        warnings.push({
+          path: file.path,
+          severity: "error",
+          message: `class ${klass.fqn} is also defined in ${classes.get(klass.fqn)?.provenance.path}; keeping the first`,
+        });
         continue;
       }
-      classes.set(klass.fqn, { ...klass, virtual: !xomBacked, provenance: { ...klass.provenance, project: file.project } });
+      classes.set(klass.fqn, {
+        ...klass,
+        virtual: !xomBacked,
+        provenance: { ...klass.provenance, project: file.project },
+      });
     }
     for (const member of file.bom.members) {
       if (members.has(member.id)) {
-        warnings.push({ path: file.path, severity: "error", message: `member ${member.id} is defined twice` });
+        warnings.push({
+          path: file.path,
+          severity: "error",
+          message: `member ${member.id} is defined twice`,
+        });
         continue;
       }
-      members.set(member.id, { ...member, provenance: { ...member.provenance, project: file.project } });
+      members.set(member.id, {
+        ...member,
+        provenance: { ...member.provenance, project: file.project },
+      });
     }
   }
   const membersByClass = new Map<string, BomMember[]>();
@@ -128,7 +163,10 @@ export function link(input: LinkInput): Linked {
     klass.superTypes = klass.superTypes.map((name) => resolveTypeName(name, klass));
     for (const member of membersByClass.get(klass.fqn) ?? []) {
       member.type = resolveTypeName(member.type, klass);
-      member.params = member.params.map((param) => ({ ...param, type: resolveTypeName(param.type, klass) }));
+      member.params = member.params.map((param) => ({
+        ...param,
+        type: resolveTypeName(param.type, klass),
+      }));
     }
   }
   for (const klass of classes.values()) {
@@ -148,14 +186,22 @@ export function link(input: LinkInput): Linked {
   // B2X: virtual classes and members, and what virtual members are computed from.
   for (const file of input.files) {
     if (!file.b2x) continue;
-    for (const b2xClass of file.b2x.classes) applyB2x(b2xClass, file, classes, membersByClass, ancestors, warnings);
+    for (const b2xClass of file.b2x.classes)
+      applyB2x(b2xClass, file, classes, membersByClass, ancestors, warnings);
   }
 
   // ---- 2. Vocabulary --------------------------------------------------------
   const vocs = input.files.filter((file) => file.voc).map((file) => file.voc as ParsedVoc);
   const locale = chooseLocale(input, vocs, warnings);
   const labels = new Map<string, string>();
-  const verbalizations: { owner: string; memberId?: string; kind: "navigation" | "action"; template: string; path: string; project: string }[] = [];
+  const verbalizations: {
+    owner: string;
+    memberId?: string;
+    kind: "navigation" | "action";
+    template: string;
+    path: string;
+    project: string;
+  }[] = [];
   for (const voc of vocs) {
     if (!localeMatches(voc.locale, locale)) continue;
     for (const entry of voc.entries) {
@@ -163,12 +209,20 @@ export function link(input: LinkInput): Linked {
       if (entry.owner.startsWith("@")) continue;
       const resolved = resolveOwner(entry.owner, classes, membersByClass);
       if (!resolved) {
-        warnings.push({ path: voc.provenance.path, severity: "error", message: `line ${entry.line}: '${entry.owner}' is not a BOM class or member` });
+        warnings.push({
+          path: voc.provenance.path,
+          severity: "error",
+          message: `line ${entry.line}: '${entry.owner}' is not a BOM class or member`,
+        });
         continue;
       }
       if (entry.key === "concept.label") {
         if (resolved.memberId) {
-          warnings.push({ path: voc.provenance.path, severity: "info", message: `line ${entry.line}: concept label on a member is ignored` });
+          warnings.push({
+            path: voc.provenance.path,
+            severity: "info",
+            message: `line ${entry.line}: concept label on a member is ignored`,
+          });
           continue;
         }
         labels.set(resolved.classFqn, entry.value);
@@ -176,7 +230,11 @@ export function link(input: LinkInput): Linked {
       }
       if (entry.key !== "phrase.navigation" && entry.key !== "phrase.action") continue;
       if (!resolved.memberId) {
-        warnings.push({ path: voc.provenance.path, severity: "info", message: `line ${entry.line}: phrase on a class (no member) is ignored` });
+        warnings.push({
+          path: voc.provenance.path,
+          severity: "info",
+          message: `line ${entry.line}: phrase on a class (no member) is ignored`,
+        });
         continue;
       }
       verbalizations.push({
@@ -199,7 +257,8 @@ export function link(input: LinkInput): Linked {
   // ---- 3. Phrases -----------------------------------------------------------
   const phrases = new Map<string, Phrase>();
   const patterns: { phrase: Phrase; items: PatternItem[] }[] = [];
-  const labelOf = (fqn: string | undefined) => (fqn ? (classes.get(fqn)?.label ?? classes.get(fqn)?.name ?? fqn) : "?");
+  const labelOf = (fqn: string | undefined) =>
+    fqn ? (classes.get(fqn)?.label ?? classes.get(fqn)?.name ?? fqn) : "?";
   for (const klass of classes.values()) {
     const label = klass.label ?? splitIdentifier(klass.name);
     const phrase: Phrase = {
@@ -218,7 +277,10 @@ export function link(input: LinkInput): Linked {
   }
   for (const verbalization of verbalizations) {
     const member = members.get(verbalization.memberId as string) as BomMember;
-    const valueTerm = verbalization.kind === "action" && member.kind === "attribute" ? lastBraceTerm(verbalization.template) : undefined;
+    const valueTerm =
+      verbalization.kind === "action" && member.kind === "attribute"
+        ? lastBraceTerm(verbalization.template)
+        : undefined;
     const { items, slotNames } = compilePattern(verbalization.template, valueTerm);
     const slots = slotNames.map((name) => {
       if (name === "this") return { name, type: member.owner };
@@ -258,7 +320,11 @@ export function link(input: LinkInput): Linked {
       if (artifacts.has(artifact.id)) {
         const prior = artifacts.get(artifact.id) as Artifact;
         if (artifact.type === "package" && prior.type === "package") continue; // same package in two projects
-        warnings.push({ path: artifact.provenance.path, severity: "error", message: `id ${artifact.id} is also used by ${prior.provenance.path}` });
+        warnings.push({
+          path: artifact.provenance.path,
+          severity: "error",
+          message: `id ${artifact.id} is also used by ${prior.provenance.path}`,
+        });
         continue;
       }
       artifacts.set(artifact.id, artifact);
@@ -287,7 +353,11 @@ export function link(input: LinkInput): Linked {
     for (const variable of artifact.variables ?? []) {
       const key = stripArticles(normalize(variable.verbalization));
       if (!classes.has(variable.type) && !isPrimitive(variable.type)) {
-        warnings.push({ path: artifact.provenance.path, severity: "error", message: `variable '${variable.name}' has type ${variable.type}, which is not in the BOM` });
+        warnings.push({
+          path: artifact.provenance.path,
+          severity: "error",
+          message: `variable '${variable.name}' has type ${variable.type}, which is not in the BOM`,
+        });
       }
       variables.set(key, variable);
       const nameKey = normalize(variable.name);
@@ -330,13 +400,20 @@ export function link(input: LinkInput): Linked {
   // ---- 4. Uses --------------------------------------------------------------
   const uses = new Map<string, Use[]>();
   // Everything matching depends on besides the artifact itself.
-  const vocabularyKey = input.files
-    .filter((file) => file.kind !== "artifact" || (file.artifacts ?? []).some((artifact) => artifact.type === "variableSet"))
-    .map((file) => `${file.path}:${file.hash}`)
-    .sort()
-    .join("|") + `|${locale ?? ""}|${JSON.stringify(input.projects.map((project) => project.parameters ?? []))}`;
+  const vocabularyKey =
+    input.files
+      .filter(
+        (file) =>
+          file.kind !== "artifact" ||
+          (file.artifacts ?? []).some((artifact) => artifact.type === "variableSet"),
+      )
+      .map((file) => `${file.path}:${file.hash}`)
+      .sort()
+      .join("|") +
+    `|${locale ?? ""}|${JSON.stringify(input.projects.map((project) => project.parameters ?? []))}`;
   const fileHash = new Map<string, string>();
-  for (const file of input.files) for (const artifact of file.artifacts ?? []) fileHash.set(artifact.id, file.hash);
+  for (const file of input.files)
+    for (const artifact of file.artifacts ?? []) fileHash.set(artifact.id, file.hash);
   const useCache = input.useCache;
   const liveKeys = new Set<string>();
   const memberNames = new Map<string, string[]>();
@@ -346,7 +423,9 @@ export function link(input: LinkInput): Linked {
     memberNames.set(member.name, list);
   }
   for (const artifact of artifacts.values()) {
-    const cacheKey = useCache ? `${vocabularyKey}\u0000${artifact.id}\u0000${fileHash.get(artifact.id) ?? ""}` : "";
+    const cacheKey = useCache
+      ? `${vocabularyKey}\u0000${artifact.id}\u0000${fileHash.get(artifact.id) ?? ""}`
+      : "";
     const cached = useCache?.get(cacheKey);
     if (cached) {
       uses.set(artifact.id, cached.list);
@@ -360,20 +439,43 @@ export function link(input: LinkInput): Linked {
     const scan = (text: string | undefined, where: string) => {
       if (!text) return;
       const tokens = tokenizeBal(text);
-      for (const match of matcher.match(tokens, localEnv)) list.push(...usesFromMatch(match, where, text, tokens));
+      for (const match of matcher.match(tokens, localEnv))
+        list.push(...usesFromMatch(match, where, text, tokens));
       for (const token of tokens) {
         if (token.kind !== "var") continue;
         const variable = localEnv.variables.get(token.value);
         const global = variables.get(token.value);
-        if (global) list.push({ target: `var:${global.name}`, where, text: `'${token.raw}'`, resolved: true });
+        if (global)
+          list.push({
+            target: `var:${global.name}`,
+            where,
+            text: `'${token.raw}'`,
+            resolved: true,
+          });
         else if (!variable) {
-          warnings.push({ path: artifact.provenance.path, severity: "info", message: `'${token.raw}' in ${where} is not a ruleset or rule variable` });
+          warnings.push({
+            path: artifact.provenance.path,
+            severity: "info",
+            message: `'${token.raw}' in ${where} is not a ruleset or rule variable`,
+          });
         }
       }
     };
     if (RULE_KINDS.includes(artifact.type as never)) {
-      if (artifact.bal && !artifact.definitions && !artifact.conditions && !artifact.actions && !artifact.elseActions && artifact.type === "actionRule") {
-        warnings.push({ path: artifact.provenance.path, severity: "info", message: "no if/then (or si/alors) sections found; the whole rule text is scanned as one body" });
+      if (
+        artifact.bal &&
+        !artifact.definitions &&
+        !artifact.conditions &&
+        !artifact.actions &&
+        !artifact.elseActions &&
+        artifact.type === "actionRule"
+      ) {
+        warnings.push({
+          path: artifact.provenance.path,
+          severity: "info",
+          message:
+            "no if/then (or si/alors) sections found; the whole rule text is scanned as one body",
+        });
         scan(artifact.bal, "body");
       }
       scan(artifact.definitions, "definitions");
@@ -386,7 +488,8 @@ export function link(input: LinkInput): Linked {
       if (artifact.irl) list.push(...irlUses(artifact.irl, memberNames, members, classes));
     }
     if (artifact.type === "ruleflow") {
-      for (const transition of artifact.transitions ?? []) scan(transition.condition, `transition:${transition.id}`);
+      for (const transition of artifact.transitions ?? [])
+        scan(transition.condition, `transition:${transition.id}`);
       for (const task of artifact.tasks ?? []) {
         scan(task.filter, `task:${task.id}`);
         scan(task.actions, `task:${task.id}`);
@@ -399,7 +502,8 @@ export function link(input: LinkInput): Linked {
       liveKeys.add(cacheKey);
     }
   }
-  if (useCache) for (const key of [...useCache.keys()]) if (!liveKeys.has(key)) useCache.delete(key);
+  if (useCache)
+    for (const key of [...useCache.keys()]) if (!liveKeys.has(key)) useCache.delete(key);
   const usedBy = new Map<string, { artifactId: string; use: Use }[]>();
   for (const [artifactId, list] of uses) {
     for (const use of list) {
@@ -412,7 +516,8 @@ export function link(input: LinkInput): Linked {
   // ---- 5. Structure ---------------------------------------------------------
   const edges: Edge[] = [];
   const packages = new Set<string>();
-  for (const artifact of artifacts.values()) if (artifact.type === "package") packages.add(artifact.name);
+  for (const artifact of artifacts.values())
+    if (artifact.type === "package") packages.add(artifact.name);
   for (const artifact of artifacts.values()) {
     if (!RULE_KINDS.includes(artifact.type as never) || !artifact.package) continue;
     if (!packages.has(artifact.package)) {
@@ -422,7 +527,10 @@ export function link(input: LinkInput): Linked {
         type: "package",
         name: artifact.package,
         package: artifact.package,
-        provenance: { project: artifact.provenance.project, path: artifact.provenance.path.replace(/\/[^/]+$/, "") },
+        provenance: {
+          project: artifact.provenance.project,
+          path: artifact.provenance.path.replace(/\/[^/]+$/, ""),
+        },
       });
     }
   }
@@ -431,14 +539,23 @@ export function link(input: LinkInput): Linked {
     const parts = name.split(".");
     for (let i = 1; i < parts.length; i++) {
       const parent = parts.slice(0, i).join(".");
-      if (packages.has(parent)) edges.push({ type: "CONTAINS", from: `pkg:${parent}`, to: `pkg:${parts.slice(0, i + 1).join(".")}` });
+      if (packages.has(parent))
+        edges.push({
+          type: "CONTAINS",
+          from: `pkg:${parent}`,
+          to: `pkg:${parts.slice(0, i + 1).join(".")}`,
+        });
     }
   }
   const rulesByName = new Map<string, string[]>();
   for (const artifact of artifacts.values()) {
     if (!RULE_KINDS.includes(artifact.type as never)) continue;
-    if (artifact.package) edges.push({ type: "CONTAINS", from: `pkg:${artifact.package}`, to: artifact.id });
-    for (const key of [artifact.name, artifact.package ? `${artifact.package}.${artifact.name}` : artifact.name]) {
+    if (artifact.package)
+      edges.push({ type: "CONTAINS", from: `pkg:${artifact.package}`, to: artifact.id });
+    for (const key of [
+      artifact.name,
+      artifact.package ? `${artifact.package}.${artifact.name}` : artifact.name,
+    ]) {
       const list = rulesByName.get(key) ?? [];
       if (!list.includes(artifact.id)) list.push(artifact.id);
       rulesByName.set(key, list);
@@ -448,17 +565,28 @@ export function link(input: LinkInput): Linked {
   const flowsByName = new Map<string, Artifact[]>();
   for (const artifact of artifacts.values()) {
     if (artifact.type !== "ruleflow") continue;
-    for (const key of new Set([artifact.name, artifact.package ? `${artifact.package}.${artifact.name}` : artifact.name])) {
+    for (const key of new Set([
+      artifact.name,
+      artifact.package ? `${artifact.package}.${artifact.name}` : artifact.name,
+    ])) {
       flowsByName.set(key, [...(flowsByName.get(key) ?? []), artifact]);
     }
   }
   /** UUID first (exact), then qualified or bare name. A bare name matching several is reported, and every match is kept as unresolved. */
-  const resolveFlow = (ref: string, path: string, what: string): { flows: Artifact[]; resolved: boolean } => {
+  const resolveFlow = (
+    ref: string,
+    path: string,
+    what: string,
+  ): { flows: Artifact[]; resolved: boolean } => {
     const byId = artifacts.get(ref);
     if (byId?.type === "ruleflow") return { flows: [byId], resolved: true };
     const named = flowsByName.get(ref) ?? [];
     if (named.length > 1) {
-      warnings.push({ path, severity: "error", message: `${what} '${ref}' matches ${named.length} ruleflows (${named.map((item) => item.provenance.path).join(", ")}); all are kept` });
+      warnings.push({
+        path,
+        severity: "error",
+        message: `${what} '${ref}' matches ${named.length} ruleflows (${named.map((item) => item.provenance.path).join(", ")}); all are kept`,
+      });
     }
     return { flows: named, resolved: named.length === 1 };
   };
@@ -468,17 +596,33 @@ export function link(input: LinkInput): Linked {
       const reason = taskReason(flow, task.id);
       for (const name of task.packages) {
         if (!packages.has(name)) {
-          warnings.push({ path: flow.provenance.path, severity: "error", message: `task '${task.id}' selects package '${name}', which is not in the decision service` });
+          warnings.push({
+            path: flow.provenance.path,
+            severity: "error",
+            message: `task '${task.id}' selects package '${name}', which is not in the decision service`,
+          });
           continue;
         }
-        edges.push({ type: "SELECTS", from: `${flow.id}#${task.id}`, to: `pkg:${name}`, detail: reason });
+        edges.push({
+          type: "SELECTS",
+          from: `${flow.id}#${task.id}`,
+          to: `pkg:${name}`,
+          detail: reason,
+        });
       }
       for (const name of task.rules) {
         // A UUID is exact. `package.name` is exact. A bare name may match rules in several packages.
         const byId = artifacts.get(name);
-        const ids = byId && RULE_KINDS.includes(byId.type as never) ? [byId.id] : (rulesByName.get(name) ?? []);
+        const ids =
+          byId && RULE_KINDS.includes(byId.type as never)
+            ? [byId.id]
+            : (rulesByName.get(name) ?? []);
         if (!ids.length) {
-          warnings.push({ path: flow.provenance.path, severity: "error", message: `task '${task.id}' selects rule '${name}', which is not in the decision service` });
+          warnings.push({
+            path: flow.provenance.path,
+            severity: "error",
+            message: `task '${task.id}' selects rule '${name}', which is not in the decision service`,
+          });
           continue;
         }
         const exact = ids.length === 1;
@@ -489,12 +633,35 @@ export function link(input: LinkInput): Linked {
             message: `task '${task.id}' selects rule '${name}', which matches ${ids.length} rules in different packages; all are kept as possibly selected`,
           });
         }
-        for (const id of ids) edges.push({ type: "SELECTS", from: `${flow.id}#${task.id}`, to: id, detail: exact ? reason : `${reason}; ambiguous rule name '${name}'`, resolved: exact });
+        for (const id of ids)
+          edges.push({
+            type: "SELECTS",
+            from: `${flow.id}#${task.id}`,
+            to: id,
+            detail: exact ? reason : `${reason}; ambiguous rule name '${name}'`,
+            resolved: exact,
+          });
       }
       if (task.kind === "subflow" && task.subflow) {
-        const { flows: targets, resolved } = resolveFlow(task.subflow, flow.provenance.path, `subflow task '${task.id}' runs`);
-        for (const target of targets) edges.push({ type: "SUBFLOW", from: `${flow.id}#${task.id}`, to: target.id, detail: reason, resolved });
-        if (!targets.length) warnings.push({ path: flow.provenance.path, severity: "error", message: `subflow task '${task.id}' runs '${task.subflow}', which is not found` });
+        const { flows: targets, resolved } = resolveFlow(
+          task.subflow,
+          flow.provenance.path,
+          `subflow task '${task.id}' runs`,
+        );
+        for (const target of targets)
+          edges.push({
+            type: "SUBFLOW",
+            from: `${flow.id}#${task.id}`,
+            to: target.id,
+            detail: reason,
+            resolved,
+          });
+        if (!targets.length)
+          warnings.push({
+            path: flow.provenance.path,
+            severity: "error",
+            message: `subflow task '${task.id}' runs '${task.subflow}', which is not found`,
+          });
       }
     }
   }
@@ -502,26 +669,51 @@ export function link(input: LinkInput): Linked {
     if (op.type !== "decisionOperation" || !op.operation) continue;
     const info = op.operation;
     const byUuid = info.ruleflowUuid ? artifacts.get(info.ruleflowUuid) : undefined;
-    const found = byUuid?.type === "ruleflow"
-      ? { flows: [byUuid], resolved: true }
-      : info.ruleflowName
-        ? resolveFlow(info.ruleflowName, op.provenance.path, "operation runs ruleflow")
-        : { flows: [], resolved: false };
-    for (const flow of found.flows) edges.push({ type: "RUNS", from: op.id, to: flow.id, detail: info.rulesetName, resolved: found.resolved });
+    const found =
+      byUuid?.type === "ruleflow"
+        ? { flows: [byUuid], resolved: true }
+        : info.ruleflowName
+          ? resolveFlow(info.ruleflowName, op.provenance.path, "operation runs ruleflow")
+          : { flows: [], resolved: false };
+    for (const flow of found.flows)
+      edges.push({
+        type: "RUNS",
+        from: op.id,
+        to: flow.id,
+        detail: info.rulesetName,
+        resolved: found.resolved,
+      });
     if (!found.flows.length && (info.ruleflowName || info.ruleflowUuid)) {
-      warnings.push({ path: op.provenance.path, severity: "error", message: `operation runs ruleflow '${info.ruleflowName ?? info.ruleflowUuid}', which is not found` });
+      warnings.push({
+        path: op.provenance.path,
+        severity: "error",
+        message: `operation runs ruleflow '${info.ruleflowName ?? info.ruleflowUuid}', which is not found`,
+      });
     }
     for (const input of info.signature) {
       const variable = [...variables.values()].find((item) => item.name === input.name);
-      if (variable) edges.push({ type: "BINDS", from: op.id, to: `var:${variable.name}`, detail: input.direction });
-      else warnings.push({ path: op.provenance.path, severity: "error", message: `signature names '${input.name}', which is not a ruleset parameter` });
+      if (variable)
+        edges.push({
+          type: "BINDS",
+          from: op.id,
+          to: `var:${variable.name}`,
+          detail: input.direction,
+        });
+      else
+        warnings.push({
+          path: op.provenance.path,
+          severity: "error",
+          message: `signature names '${input.name}', which is not a ruleset parameter`,
+        });
     }
   }
   for (const klass of classes.values()) {
-    for (const parent of klass.superTypes) edges.push({ type: "EXTENDS", from: klass.fqn, to: parent });
+    for (const parent of klass.superTypes)
+      edges.push({ type: "EXTENDS", from: klass.fqn, to: parent });
   }
   for (const member of members.values()) {
-    for (const source of member.derivedFrom) edges.push({ type: "DERIVES_FROM", from: member.id, to: source, detail: "B2X" });
+    for (const source of member.derivedFrom)
+      edges.push({ type: "DERIVES_FROM", from: member.id, to: source, detail: "B2X" });
   }
 
   // Glossary entries must point at real terms; a stale entry is an error, not a silent miss.
@@ -529,9 +721,15 @@ export function link(input: LinkInput): Linked {
     for (const target of entry.means) {
       if (members.has(target) || classes.has(target) || phrases.has(target)) continue;
       const tokens = tokenizeBal(target);
-      const found = matcher.match(tokens, env).some((match) => match.from === 0 && match.to === tokens.length);
+      const found = matcher
+        .match(tokens, env)
+        .some((match) => match.from === 0 && match.to === tokens.length);
       if (!found) {
-        warnings.push({ path: "rulebase.glossary.yaml", severity: "error", message: `'${entry.phrase}' means '${target}', which is not a vocabulary term` });
+        warnings.push({
+          path: "rulebase.glossary.yaml",
+          severity: "error",
+          message: `'${entry.phrase}' means '${target}', which is not a vocabulary term`,
+        });
       }
     }
   }
@@ -555,11 +753,14 @@ export function link(input: LinkInput): Linked {
   };
 
   function taskReason(flow: Artifact, taskId: string): string {
-    const incoming = (flow.transitions ?? []).filter((transition) => transition.target === taskId && transition.condition);
+    const incoming = (flow.transitions ?? []).filter(
+      (transition) => transition.target === taskId && transition.condition,
+    );
     const task = flow.tasks?.find((item) => item.id === taskId);
     const parts = [`ruleflow '${flow.name}' task '${taskId}'`];
     if (task?.filter) parts.push(`filter: ${task.filter}`);
-    if (incoming.length) parts.push(`reached when: ${incoming.map((item) => item.condition).join(" | ")}`);
+    if (incoming.length)
+      parts.push(`reached when: ${incoming.map((item) => item.condition).join(" | ")}`);
     return parts.join("; ");
   }
 }
@@ -574,7 +775,11 @@ function applyB2x(
 ) {
   const klass = classes.get(b2xClass.businessName);
   if (!klass) {
-    warnings.push({ path: file.path, severity: "error", message: `B2X maps ${b2xClass.businessName}, which is not a BOM class` });
+    warnings.push({
+      path: file.path,
+      severity: "error",
+      message: `B2X maps ${b2xClass.businessName}, which is not a BOM class`,
+    });
     return;
   }
   if (b2xClass.executionName && b2xClass.executionName !== b2xClass.businessName) {
@@ -582,22 +787,35 @@ function applyB2x(
     klass.executionName = b2xClass.executionName;
   }
   const own = membersByClass.get(klass.fqn) ?? [];
-  const reachable = [klass.fqn, ...(ancestors.get(klass.fqn) ?? [])].flatMap((fqn) => membersByClass.get(fqn) ?? []);
+  const reachable = [klass.fqn, ...(ancestors.get(klass.fqn) ?? [])].flatMap(
+    (fqn) => membersByClass.get(fqn) ?? [],
+  );
   for (const b2xMember of b2xClass.members) {
     const candidates = own.filter(
       (member) =>
         member.name === b2xMember.name &&
-        (b2xMember.kind === "attribute" ? member.kind === "attribute" : member.kind !== "attribute" && member.params.length === b2xMember.paramTypes.length),
+        (b2xMember.kind === "attribute"
+          ? member.kind === "attribute"
+          : member.kind !== "attribute" && member.params.length === b2xMember.paramTypes.length),
     );
     if (!candidates.length && b2xMember.name.includes(".")) {
       // `.b2xa` writes a conversion operator as a method named after its target type.
       const target = b2xMember.name;
       candidates.push(
-        ...own.filter((member) => member.name === "operator" && (member.type === target || member.type.split(".").pop() === target.split(".").pop()) && member.params.length === b2xMember.paramTypes.length),
+        ...own.filter(
+          (member) =>
+            member.name === "operator" &&
+            (member.type === target || member.type.split(".").pop() === target.split(".").pop()) &&
+            member.params.length === b2xMember.paramTypes.length,
+        ),
       );
     }
     if (!candidates.length) {
-      warnings.push({ path: file.path, severity: "error", message: `B2X implements ${klass.fqn}.${b2xMember.name}, which is not a BOM member` });
+      warnings.push({
+        path: file.path,
+        severity: "error",
+        message: `B2X implements ${klass.fqn}.${b2xMember.name}, which is not a BOM member`,
+      });
       continue;
     }
     for (const member of candidates) {
@@ -618,16 +836,27 @@ function derivedFrom(code: string, self: BomMember, reachable: BomMember[]): str
     if (member.id === self.id) continue;
     const getter = `get${member.name[0]?.toUpperCase()}${member.name.slice(1)}`;
     const isser = `is${member.name[0]?.toUpperCase()}${member.name.slice(1)}`;
-    if (identifiers.has(member.name) || identifiers.has(getter) || identifiers.has(isser)) out.add(member.id);
+    if (identifiers.has(member.name) || identifiers.has(getter) || identifiers.has(isser))
+      out.add(member.id);
   }
   return [...out].sort();
 }
 
-function chooseLocale(input: LinkInput, vocs: ParsedVoc[], warnings: Warning[]): string | undefined {
-  const available = [...new Set(vocs.map((voc) => voc.locale).filter((item): item is string => Boolean(item)))];
+function chooseLocale(
+  input: LinkInput,
+  vocs: ParsedVoc[],
+  warnings: Warning[],
+): string | undefined {
+  const available = [
+    ...new Set(vocs.map((voc) => voc.locale).filter((item): item is string => Boolean(item))),
+  ];
   if (input.locale) {
     if (vocs.length && !vocs.some((voc) => localeMatches(voc.locale, input.locale))) {
-      warnings.push({ path: "rulebase.yaml", severity: "error", message: `locale '${input.locale}' has no vocabulary file (found: ${available.join(", ") || "none"})` });
+      warnings.push({
+        path: "rulebase.yaml",
+        severity: "error",
+        message: `locale '${input.locale}' has no vocabulary file (found: ${available.join(", ") || "none"})`,
+      });
     }
     return input.locale;
   }
@@ -637,15 +866,25 @@ function chooseLocale(input: LinkInput, vocs: ParsedVoc[], warnings: Warning[]):
       if (artifact.locale) counts.set(artifact.locale, (counts.get(artifact.locale) ?? 0) + 1);
     }
   }
-  const ruleLocale = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0];
+  const ruleLocale = [...counts.entries()].sort(
+    (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+  )[0]?.[0];
   if (ruleLocale && vocs.some((voc) => localeMatches(voc.locale, ruleLocale))) {
     if (available.length > 1) {
-      warnings.push({ path: "rulebase.yaml", severity: "info", message: `vocabulary has locales ${available.join(", ")}; using ${ruleLocale}, the locale most rules use` });
+      warnings.push({
+        path: "rulebase.yaml",
+        severity: "info",
+        message: `vocabulary has locales ${available.join(", ")}; using ${ruleLocale}, the locale most rules use`,
+      });
     }
     return ruleLocale;
   }
   if (available.length > 1) {
-    warnings.push({ path: "rulebase.yaml", severity: "error", message: `vocabulary has locales ${available.join(", ")} and none matches the rules; set 'locale:' in rulebase.yaml` });
+    warnings.push({
+      path: "rulebase.yaml",
+      severity: "error",
+      message: `vocabulary has locales ${available.join(", ")} and none matches the rules; set 'locale:' in rulebase.yaml`,
+    });
   }
   return available[0];
 }
@@ -681,9 +920,14 @@ function resolveOwner(
   }
   const argTypes = args ? args.split(",").map((item) => item.trim()) : [];
   const exact = candidates.find(
-    (member) => member.kind !== "attribute" && member.params.length === argTypes.length && member.params.every((param, i) => sameType(param.type, argTypes[i])),
+    (member) =>
+      member.kind !== "attribute" &&
+      member.params.length === argTypes.length &&
+      member.params.every((param, i) => sameType(param.type, argTypes[i])),
   );
-  const byCount = candidates.find((member) => member.kind !== "attribute" && member.params.length === argTypes.length);
+  const byCount = candidates.find(
+    (member) => member.kind !== "attribute" && member.params.length === argTypes.length,
+  );
   const chosen = exact ?? byCount;
   return chosen ? { classFqn, memberId: chosen.id } : null;
 }
@@ -692,18 +936,27 @@ function resolveOwner(
 function sameType(a: string, b: string): boolean {
   const canon = (t: string) => {
     const x = t.trim();
-    const map: Record<string, string> = { "java.lang.String": "string", "java.lang.Boolean": "boolean", "java.lang.Integer": "int", "java.lang.Double": "double" };
+    const map: Record<string, string> = {
+      "java.lang.String": "string",
+      "java.lang.Boolean": "boolean",
+      "java.lang.Integer": "int",
+      "java.lang.Double": "double",
+    };
     return map[x] ?? x;
   };
   return canon(a) === canon(b) || canon(a).split(".").pop() === canon(b).split(".").pop();
 }
 
 function isPrimitive(type: string): boolean {
-  return /^(int|long|short|byte|double|float|boolean|char|string|java\.lang\.\w+|java\.util\.\w+|java\.math\.\w+)$/.test(type);
+  return /^(int|long|short|byte|double|float|boolean|char|string|java\.lang\.\w+|java\.util\.\w+|java\.math\.\w+)$/.test(
+    type,
+  );
 }
 
 function lastBraceTerm(template: string): string | undefined {
-  const braces = [...template.matchAll(/\{([^}]*)\}/g)].map((match) => match[1].trim()).filter((name) => name !== "this" && !/^\d+$/.test(name));
+  const braces = [...template.matchAll(/\{([^}]*)\}/g)]
+    .map((match) => match[1].trim())
+    .filter((name) => name !== "this" && !/^\d+$/.test(name));
   return braces[braces.length - 1];
 }
 
@@ -715,13 +968,17 @@ function renderTemplate(
 ): string {
   let valueDone = false;
   const lastValue = valueTerm
-    ? [...template.matchAll(/\{([^}]*)\}/g)].map((match) => match.index ?? 0).filter((_, i, all) => i === all.length - 1)[0]
+    ? [...template.matchAll(/\{([^}]*)\}/g)]
+        .map((match) => match.index ?? 0)
+        .filter((_, i, all) => i === all.length - 1)[0]
     : -1;
   return template
     .replace(/\{([^}]*)\}/g, (whole, name: string, offset: number) => {
       const trimmed = name.trim();
-      if (trimmed === "this") return `<${labelOf(slots.find((slot) => slot.name === "this")?.type)}>`;
-      if (/^\d+$/.test(trimmed)) return `<${shortType(slots.find((slot) => slot.name === trimmed)?.type)}>`;
+      if (trimmed === "this")
+        return `<${labelOf(slots.find((slot) => slot.name === "this")?.type)}>`;
+      if (/^\d+$/.test(trimmed))
+        return `<${shortType(slots.find((slot) => slot.name === trimmed)?.type)}>`;
       if (valueTerm && !valueDone && offset === lastValue) {
         valueDone = true;
         return `<${trimmed}>`;
@@ -737,7 +994,12 @@ function shortType(type: string | undefined): string {
   return type.split(".").pop() ?? type;
 }
 
-function withDefinitions(env: TypeEnv, artifact: Artifact, matcher: PhraseMatcher, warnings: Warning[]): TypeEnv {
+function withDefinitions(
+  env: TypeEnv,
+  artifact: Artifact,
+  matcher: PhraseMatcher,
+  warnings: Warning[],
+): TypeEnv {
   if (!artifact.definitions) return env;
   const variables = new Map(env.variables);
   const local: TypeEnv = { ...env, variables };
@@ -752,7 +1014,11 @@ function withDefinitions(env: TypeEnv, artifact: Artifact, matcher: PhraseMatche
     if (type) variables.set(name, type);
     else {
       variables.set(name, "?");
-      warnings.push({ path: artifact.provenance.path, severity: "info", message: `definition '${raw}' could not be typed; uses through it are unresolved` });
+      warnings.push({
+        path: artifact.provenance.path,
+        severity: "info",
+        message: `definition '${raw}' could not be typed; uses through it are unresolved`,
+      });
     }
   }
   return local;
@@ -762,8 +1028,23 @@ function withDefinitions(env: TypeEnv, artifact: Artifact, matcher: PhraseMatche
 function expressionType(tokens: Token[], env: TypeEnv, matcher: PhraseMatcher): string | undefined {
   // `set 'minimum score' to 200 ;`, `set 'prefix' to "LN-" ;`: a literal, or arithmetic on literals
   const meaningful = tokens.filter((token) => !(token.kind === "punct" && token.value === ";"));
-  if (meaningful.length && meaningful.every((token) => token.kind === "number" || token.kind === "op" || (token.kind === "punct" && "()".includes(token.value)))) return "number";
-  if (meaningful.length && meaningful.every((token) => token.kind === "string" || (token.kind === "op" && token.value === "+"))) return "string";
+  if (
+    meaningful.length &&
+    meaningful.every(
+      (token) =>
+        token.kind === "number" ||
+        token.kind === "op" ||
+        (token.kind === "punct" && "()".includes(token.value)),
+    )
+  )
+    return "number";
+  if (
+    meaningful.length &&
+    meaningful.every(
+      (token) => token.kind === "string" || (token.kind === "op" && token.value === "+"),
+    )
+  )
+    return "string";
   const words: string[] = [];
   for (const token of tokens) {
     if (token.kind !== "word" || ["where", "in", "from", "with"].includes(token.value)) break;
@@ -777,7 +1058,12 @@ function expressionType(tokens: Token[], env: TypeEnv, matcher: PhraseMatcher): 
   // `0.37 * the yearly income of 'the borrower'`: arithmetic over numeric navigations is a number
   const arithmetic = tokens.some((token) => token.kind === "op" && "+-*/".includes(token.value));
   const navigations = matches.filter((match) => match.compiled.phrase.kind === "navigation");
-  if (arithmetic && navigations.length && navigations.every((match) => typeCategory(match.compiled.phrase.type) === "number")) return "number";
+  if (
+    arithmetic &&
+    navigations.length &&
+    navigations.every((match) => typeCategory(match.compiled.phrase.type) === "number")
+  )
+    return "number";
   const nav = navigations.find((match) => match.from === 0);
   return nav?.compiled.phrase.type;
 }
@@ -789,8 +1075,21 @@ function usesFromMatch(match: PhraseMatch, where: string, text: string, tokens: 
   const end = tokens[match.to - 1]?.end ?? text.length;
   const snippet = text.slice(start, end).replace(/\s+/g, " ").trim();
   // Setter phrases: English, French, Portuguese, Spanish
-  const writes = phrase.kind === "action" && /^\s*(set|make it|assigner|mettre|d\u00e9finir|definir|rendre|atribuir|definir|asignar|establecer)\b/i.test(phrase.template);
-  return [{ target, phraseId: phrase.id, where, text: snippet, resolved: match.resolved, ...(writes ? { writes } : {}) }];
+  const writes =
+    phrase.kind === "action" &&
+    /^\s*(set|make it|assigner|mettre|d\u00e9finir|definir|rendre|atribuir|definir|asignar|establecer)\b/i.test(
+      phrase.template,
+    );
+  return [
+    {
+      target,
+      phraseId: phrase.id,
+      where,
+      text: snippet,
+      resolved: match.resolved,
+      ...(writes ? { writes } : {}),
+    },
+  ];
 }
 
 /**
@@ -799,7 +1098,12 @@ function usesFromMatch(match: PhraseMatch, where: string, text: string, tokens: 
  *   ?b.setFrozen(true)                          -> frozen on ?b's class, a write (resolved)
  *   x.amount, x.getAmount()                     -> every member with that name (unresolved if ambiguous)
  */
-function irlUses(irl: string, memberNames: Map<string, string[]>, members: Map<string, BomMember>, classes: Map<string, BomClass>): Use[] {
+function irlUses(
+  irl: string,
+  memberNames: Map<string, string[]>,
+  members: Map<string, BomMember>,
+  classes: Map<string, BomClass>,
+): Use[] {
   const out: Use[] = [];
   const code = irl.replace(/"(?:[^"\\]|\\.)*"/g, '""');
   const classOf = (name: string) => {
@@ -809,7 +1113,8 @@ function irlUses(irl: string, memberNames: Map<string, string[]>, members: Map<s
   };
   const memberOn = (fqn: string, name: string) => {
     const owners = [fqn];
-    for (let i = 0; i < owners.length; i++) owners.push(...(classes.get(owners[i])?.superTypes ?? []));
+    for (let i = 0; i < owners.length; i++)
+      owners.push(...(classes.get(owners[i])?.superTypes ?? []));
     for (const owner of owners) {
       const id = (memberNames.get(name) ?? []).find((item) => members.get(item)?.owner === owner);
       if (id) return id;
@@ -850,8 +1155,22 @@ function irlUses(irl: string, memberNames: Map<string, string[]>, members: Map<s
   // Member access: `?b.x`, `?b.setX(`, `obj.x`.
   for (const match of code.matchAll(/(\?\w+|[A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)/g)) {
     const at = match.index ?? 0;
-    if (classSpans.some(([from, to]) => at >= from && at < to && /^[A-Za-z_]/.test(match[1]) && classOf(`${match[1]}.${match[2]}`))) continue;
-    if (classOf(`${match[1]}.${match[2]}`) || /^[a-z]+$/.test(match[1]) && [...classes.keys()].some((fqn) => fqn.startsWith(`${match[1]}.`))) continue;
+    if (
+      classSpans.some(
+        ([from, to]) =>
+          at >= from &&
+          at < to &&
+          /^[A-Za-z_]/.test(match[1]) &&
+          classOf(`${match[1]}.${match[2]}`),
+      )
+    )
+      continue;
+    if (
+      classOf(`${match[1]}.${match[2]}`) ||
+      (/^[a-z]+$/.test(match[1]) &&
+        [...classes.keys()].some((fqn) => fqn.startsWith(`${match[1]}.`)))
+    )
+      continue;
     const { name, writes } = accessor(match[2]);
     const bound = match[1].startsWith("?") ? bindings.get(match[1].slice(1)) : undefined;
     if (bound) {
@@ -859,8 +1178,11 @@ function irlUses(irl: string, memberNames: Map<string, string[]>, members: Map<s
       if (id) push(id, `${match[1]}.${match[2]}`, true, writes);
       continue;
     }
-    const candidates = (memberNames.get(name) ?? []).filter((id) => members.get(id)?.kind !== "constructor");
-    for (const id of candidates) push(id, `${match[1]}.${match[2]}`, candidates.length === 1, writes);
+    const candidates = (memberNames.get(name) ?? []).filter(
+      (id) => members.get(id)?.kind !== "constructor",
+    );
+    for (const id of candidates)
+      push(id, `${match[1]}.${match[2]}`, candidates.length === 1, writes);
   }
   return out;
 }

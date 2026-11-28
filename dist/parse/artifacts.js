@@ -1,6 +1,16 @@
 import { attr, child, children, parseXml, rootElement, scalar, textOf } from "./xml.js";
 /** Elements read explicitly; everything else that is a simple value becomes a property. */
-const STRUCTURAL = new Set(["name", "uuid", "locale", "definition", "rfModel", "body", "documentation", "status", "priority"]);
+const STRUCTURAL = new Set([
+    "name",
+    "uuid",
+    "locale",
+    "definition",
+    "rfModel",
+    "body",
+    "documentation",
+    "status",
+    "priority",
+]);
 export function parseArtifactFile(content, provenance, packageName) {
     const warnings = [];
     let doc;
@@ -8,7 +18,11 @@ export function parseArtifactFile(content, provenance, packageName) {
         doc = parseXml(content);
     }
     catch (error) {
-        warnings.push({ path: provenance.path, severity: "error", message: `not well-formed XML: ${errorText(error)}` });
+        warnings.push({
+            path: provenance.path,
+            severity: "error",
+            message: `not well-formed XML: ${errorText(error)}`,
+        });
         return { artifacts: [], warnings };
     }
     const root = rootElement(doc);
@@ -38,7 +52,11 @@ export function parseArtifactFile(content, provenance, packageName) {
         case ".rulepackage":
             return { artifacts: [rulePackage(ctx)], warnings };
         default:
-            warnings.push({ path: provenance.path, severity: "error", message: `no parser for '${ext}' (root <${root.name}>)` });
+            warnings.push({
+                path: provenance.path,
+                severity: "error",
+                message: `no parser for '${ext}' (root <${root.name}>)`,
+            });
             return { artifacts: [], warnings };
     }
 }
@@ -123,7 +141,9 @@ export function splitBal(bal) {
     };
     const out = {};
     for (let i = 0; i < marks.length; i++) {
-        const body = text.slice(marks[i].end, i + 1 < marks.length ? marks[i + 1].index : text.length).trim();
+        const body = text
+            .slice(marks[i].end, i + 1 < marks.length ? marks[i + 1].index : text.length)
+            .trim();
         const key = keyMap[marks[i].key];
         if (body)
             out[key] = out[key] ? `${out[key]}\n${body}` : body;
@@ -146,7 +166,11 @@ function codeArtifact(ctx, type) {
     const artifact = base(ctx, type);
     const irl = (textOf(child(ctx.node, "definition")) || textOf(child(ctx.node, "body"))).trim();
     if (!irl)
-        ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: `${type} has no <definition> or <body>` });
+        ctx.warnings.push({
+            path: ctx.provenance.path,
+            severity: "error",
+            message: `${type} has no <definition> or <body>`,
+        });
     return { ...artifact, irl };
 }
 function decisionTree(ctx) {
@@ -156,14 +180,21 @@ function decisionTree(ctx) {
     // so vocabulary use and search still see the whole tree.
     const texts = [];
     collectText(definition, texts);
-    const bal = texts.map((item) => item.trim()).filter(Boolean).join("\n");
+    const bal = texts
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .join("\n");
     ctx.warnings.push({
         path: ctx.provenance.path,
         severity: "info",
         message: "decision tree branches are indexed as text; node structure is not modelled",
     });
     if (!bal)
-        ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: "decision tree has no readable content" });
+        ctx.warnings.push({
+            path: ctx.provenance.path,
+            severity: "error",
+            message: "decision tree has no readable content",
+        });
     return { ...artifact, bal };
 }
 function collectText(node, out) {
@@ -198,7 +229,13 @@ function tableCell(columnId, expression, enabled) {
     const params = children(expression, "Param").map((param) => textOf(param).trim());
     const override = textOf(child(expression, "Text")).trim();
     const otherwise = /^otherwise$/i.test(override) || attr(expression, "Otherwise") === "true";
-    return { columnId, params, ...(override && !otherwise ? { template: override } : {}), enabled, ...(otherwise ? { otherwise } : {}) };
+    return {
+        columnId,
+        params,
+        ...(override && !otherwise ? { template: override } : {}),
+        enabled,
+        ...(otherwise ? { otherwise } : {}),
+    };
 }
 /** Readable text of a cell: its template (or the column's) filled with its values. */
 export function renderCell(cell, column) {
@@ -251,9 +288,17 @@ function decisionTable(ctx) {
     }
     const preconditions = textOf(child(child(body, "Preconditions"), "Text")).trim() || undefined;
     if (!columns.length)
-        ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: "decision table has no column definitions" });
+        ctx.warnings.push({
+            path: ctx.provenance.path,
+            severity: "error",
+            message: "decision table has no column definitions",
+        });
     if (!rows.length)
-        ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: "decision table has no rows" });
+        ctx.warnings.push({
+            path: ctx.provenance.path,
+            severity: "error",
+            message: "decision table has no rows",
+        });
     const expected = countActionSets(contents);
     if (expected !== rows.length) {
         ctx.warnings.push({
@@ -296,7 +341,11 @@ function ruleflow(ctx) {
     const artifact = base(ctx, "ruleflow");
     const model = child(child(ctx.node, "rfModel"), "Ruleflow") ?? child(ctx.node, "Ruleflow");
     if (!model) {
-        ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: "ruleflow has no <Ruleflow> model" });
+        ctx.warnings.push({
+            path: ctx.provenance.path,
+            severity: "error",
+            message: "ruleflow has no <Ruleflow> model",
+        });
         return { ...artifact, tasks: [], transitions: [] };
     }
     const body = child(model, "Body");
@@ -308,7 +357,11 @@ function ruleflow(ctx) {
         const local = key.slice(key.lastIndexOf(":") + 1);
         const kind = TASK_KINDS[local];
         if (!kind) {
-            ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: `ruleflow task type <${local}> is not understood` });
+            ctx.warnings.push({
+                path: ctx.provenance.path,
+                severity: "error",
+                message: `ruleflow task type <${local}> is not understood`,
+            });
             continue;
         }
         for (const raw of Array.isArray(value) ? value : [value])
@@ -316,7 +369,11 @@ function ruleflow(ctx) {
     }
     // NodeList holds TaskNodes (pointing at tasks) and structural nodes (ForkNode, JoinNode, BranchNode).
     const nodeToTask = new Map();
-    const structural = { ForkNode: "fork", JoinNode: "join", BranchNode: "branch" };
+    const structural = {
+        ForkNode: "fork",
+        JoinNode: "join",
+        BranchNode: "branch",
+    };
     for (const [key, value] of Object.entries(child(body, "NodeList") ?? {})) {
         if (key.startsWith("@") || key.startsWith("#"))
             continue;
@@ -335,7 +392,11 @@ function ruleflow(ctx) {
                 tasks.push({ id, kind: structural[local], packages: [], rules: [] });
             }
             else {
-                ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: `ruleflow node type <${local}> is not understood` });
+                ctx.warnings.push({
+                    path: ctx.provenance.path,
+                    severity: "error",
+                    message: `ruleflow node type <${local}> is not understood`,
+                });
             }
         }
     }
@@ -354,7 +415,11 @@ function ruleflow(ctx) {
     for (const transition of transitions) {
         for (const end of [transition.source, transition.target]) {
             if (end && !known.has(end)) {
-                ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: `transition ${transition.id} points at unknown task '${end}'` });
+                ctx.warnings.push({
+                    path: ctx.provenance.path,
+                    severity: "error",
+                    message: `transition ${transition.id} points at unknown task '${end}'`,
+                });
             }
         }
     }
@@ -362,10 +427,17 @@ function ruleflow(ctx) {
 }
 function flowTask(kind, raw, ctx) {
     const ruleList = child(raw, "RuleList");
-    const packages = children(ruleList, "Package").map((item) => attr(item, "Name") ?? textOf(item).trim()).filter(Boolean);
+    const packages = children(ruleList, "Package")
+        .map((item) => attr(item, "Name") ?? textOf(item).trim())
+        .filter(Boolean);
     // The Uuid is exact; the Name may be shared by rules in different packages.
-    const rules = children(ruleList, "Rule").map((item) => attr(item, "Uuid") ?? attr(item, "Name") ?? textOf(item).trim()).filter(Boolean);
-    const filterNode = child(raw, "Filter") ?? child(raw, "Select") ?? child(raw, "RuntimeSelection") ?? child(raw, "Selection");
+    const rules = children(ruleList, "Rule")
+        .map((item) => attr(item, "Uuid") ?? attr(item, "Name") ?? textOf(item).trim())
+        .filter(Boolean);
+    const filterNode = child(raw, "Filter") ??
+        child(raw, "Select") ??
+        child(raw, "RuntimeSelection") ??
+        child(raw, "Selection");
     const filter = textOf(filterNode).trim();
     const actions = ["InitialActions", "FinalActions", "Actions"]
         .map((name) => {
@@ -374,12 +446,26 @@ function flowTask(kind, raw, ctx) {
     })
         .filter(Boolean)
         .join("\n");
-    const subflow = kind === "subflow" ? (attr(raw, "Ruleflow") ?? attr(raw, "FlowName") ?? attr(raw, "Flow") ?? attr(raw, "Uuid") ?? scalar(raw, "Ruleflow")) : undefined;
+    const subflow = kind === "subflow"
+        ? (attr(raw, "Ruleflow") ??
+            attr(raw, "FlowName") ??
+            attr(raw, "Flow") ??
+            attr(raw, "Uuid") ??
+            scalar(raw, "Ruleflow"))
+        : undefined;
     if (kind === "subflow" && !subflow) {
-        ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: `subflow task '${attr(raw, "Identifier") ?? "?"}' has no readable target` });
+        ctx.warnings.push({
+            path: ctx.provenance.path,
+            severity: "error",
+            message: `subflow task '${attr(raw, "Identifier") ?? "?"}' has no readable target`,
+        });
     }
     if (kind === "rule" && !packages.length && !rules.length && !filter) {
-        ctx.warnings.push({ path: ctx.provenance.path, severity: "info", message: `rule task '${attr(raw, "Identifier") ?? "?"}' selects nothing` });
+        ctx.warnings.push({
+            path: ctx.provenance.path,
+            severity: "info",
+            message: `rule task '${attr(raw, "Identifier") ?? "?"}' selects nothing`,
+        });
     }
     return {
         id: attr(raw, "Identifier") ?? attr(raw, "Name") ?? kind,
@@ -407,14 +493,20 @@ function operation(ctx) {
         };
     });
     if (!href && !attr(ctx.node, "ruleflowName")) {
-        ctx.warnings.push({ path: ctx.provenance.path, severity: "info", message: "decision operation has no ruleflow: it runs every rule in the ruleset" });
+        ctx.warnings.push({
+            path: ctx.provenance.path,
+            severity: "info",
+            message: "decision operation has no ruleflow: it runs every rule in the ruleset",
+        });
     }
     return {
         ...artifact,
         operation: {
             rulesetName: attr(ctx.node, "rulesetName"),
             ruleflowName: attr(ctx.node, "ruleflowName"),
-            ruleflowUuid: href.includes("#") ? decodeURIComponent(href.slice(href.indexOf("#") + 1)) : undefined,
+            ruleflowUuid: href.includes("#")
+                ? decodeURIComponent(href.slice(href.indexOf("#") + 1))
+                : undefined,
             targetProject: attr(ctx.node, "targetRuleProjectName"),
             signature,
         },
@@ -434,7 +526,11 @@ function variableSet(ctx) {
     });
     for (const variable of variables) {
         if (!variable.type)
-            ctx.warnings.push({ path: ctx.provenance.path, severity: "error", message: `variable '${variable.name}' has no type` });
+            ctx.warnings.push({
+                path: ctx.provenance.path,
+                severity: "error",
+                message: `variable '${variable.name}' has no type`,
+            });
     }
     return { ...artifact, variables };
 }

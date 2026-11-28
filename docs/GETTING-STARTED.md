@@ -164,6 +164,7 @@ The MCP server gives the assistant the tools. The **`odm-change-analysis` skill*
 # Windows
 Copy-Item -Recurse skills\odm-change-analysis $HOME\.claude\skills\
 ```
+
 ```bash
 # macOS / Linux
 cp -r skills/odm-change-analysis ~/.claude/skills/
@@ -177,17 +178,17 @@ It then runs on its own when you ask about a rule change, or you can type `/odm-
 
 Talk to the assistant as you would to a colleague who knows the rule project. Good first questions:
 
-| You want to know | Ask something like |
-|---|---|
-| What a requirement would change | *"Requirement: decline applicants whose debt-to-income is above 40%. What needs to change?"* |
-| Whether a term exists | *"Is there anything in the vocabulary for the applicant's employment status?"* |
-| What a rule does | *"Show me the 'repayment and score' table, rows 3 to 5."* |
-| What a change touches | *"If I change the yearly income field, which rules are affected?"* |
-| Whether a rule runs | *"Does the rule 'legacy check' actually run?"* |
-| How a ruleflow runs | *"Walk me through the main ruleflow: which tasks run, in what order, and under which conditions?"* |
-| A ruleflow change | *"We want a fraud check after validation, only for valid loans. What changes, and what does it do to the rules that run after it?"* |
-| A large requirement | Paste the policy or change request. The assistant splits it into clauses, works each one, then merges them, flagging clauses that conflict. |
-| What changed | *"What changed since the last time you indexed?"* (after a sync) |
+| You want to know                | Ask something like                                                                                                                          |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| What a requirement would change | _"Requirement: decline applicants whose debt-to-income is above 40%. What needs to change?"_                                                |
+| Whether a term exists           | _"Is there anything in the vocabulary for the applicant's employment status?"_                                                              |
+| What a rule does                | _"Show me the 'repayment and score' table, rows 3 to 5."_                                                                                   |
+| What a change touches           | _"If I change the yearly income field, which rules are affected?"_                                                                          |
+| Whether a rule runs             | _"Does the rule 'legacy check' actually run?"_                                                                                              |
+| How a ruleflow runs             | _"Walk me through the main ruleflow: which tasks run, in what order, and under which conditions?"_                                          |
+| A ruleflow change               | _"We want a fraud check after validation, only for valid loans. What changes, and what does it do to the rules that run after it?"_         |
+| A large requirement             | Paste the policy or change request. The assistant splits it into clauses, works each one, then merges them, flagging clauses that conflict. |
+| What changed                    | _"What changed since the last time you indexed?"_ (after a sync)                                                                            |
 
 For a requirement, expect a **proposal** like this:
 
@@ -196,13 +197,13 @@ For a requirement, expect a **proposal** like this:
 - **Impact:** what else the change touches.
 - **Open points:** what you need to decide or confirm.
 
-Some words in answers have a specific meaning: *vocabulary gap*, *needs verbalization*, *does not run*, *possible*, *unread files*, *stale*. They're explained in [REFERENCE.md](REFERENCE.md#what-the-answers-mean).
+Some words in answers have a specific meaning: _vocabulary gap_, _needs verbalization_, _does not run_, _possible_, _unread files_, _stale_. They're explained in [REFERENCE.md](REFERENCE.md#what-the-answers-mean).
 
 **What it won't do:** edit your rules. You review the proposal and make the change in Rule Designer or Decision Center. That's deliberate.
 
 ## 8. Day to day
 
-- **Syncing from Decision Center, or switching branch or release:** nothing to do. Rulebase notices the changed files and re-indexes them before its next answer. Ask the assistant *"what changed?"* to see the drift.
+- **Syncing from Decision Center, or switching branch or release:** nothing to do. Rulebase notices the changed files and re-indexes them before its next answer. Ask the assistant _"what changed?"_ to see the drift.
 - **Business words your team uses** that aren't in the BOM ("DTI", "over-leveraged"): put them in `rulebase.glossary.yaml` in the workspace folder, commit it, and review changes like code. The format is in [REFERENCE.md](REFERENCE.md#configuration). An entry that points at a term that no longer exists shows up as an error, so the glossary can't silently go out of date.
 - **Overriding the defaults** (rarely needed): `rulebase.yaml` in the workspace folder can pick the decision service, exclude a stale project, or set the vocabulary locale. See [REFERENCE.md](REFERENCE.md#configuration).
 - **Clearing the cache:** `rulebase clean C:\workspaces\LoanDS`. It's safe to do; the next index is a full one.
@@ -221,18 +222,18 @@ This catches problems such as a ruleflow that selects a package that no longer e
 
 ## 10. Troubleshooting
 
-| Message | What it means | What to do |
-|---|---|---|
-| `No Rule Designer projects (.ruleproject) found under …` | The folder doesn't contain a rule project. | Point at the workspace or project folder that has the `.ruleproject` files. |
-| `The workspace has 2 decision services: A, B. Point rulebase at one of their folders …` | Several decision services share the folder. | Use the decision-service project folder, e.g. `…\workspace\A`. |
-| `No project is marked as a decision service, and 2 projects are not referenced by any other …` | Classic rule projects, and it's not clear which one is the main one. | Point at the main project's folder. |
-| `this is an Automation Decision Services (ADS) project …` / `… a Decision Server Insights rule agent …` | Another IBM product with the same folder layout. | These aren't supported; Rulebase reads ODM rule projects. |
-| `'x.y.Z.field' is not a BOM class or member` (in a `.voc` file) | The vocabulary describes a field the BOM no longer has. | A real inconsistency in the project: fix the BOM or the vocabulary in Rule Designer. |
-| `task 't' selects rule '…', which is not in the decision service` | The ruleflow points at a rule that was deleted or moved. | Fix the ruleflow in Rule Designer. |
-| `task 't' selects rule 'x', which matches 2 rules in different packages` | The ruleflow names a rule that exists in two packages. | Rulebase keeps both as "possibly selected". Rename one, or check which is meant. |
-| `could not read member …` / `could not read class header …` (in a `.bom` file) | BOM syntax Rulebase doesn't understand yet. | Please report it (section 11). |
-| The assistant says it can't find the Rulebase tools | The MCP server isn't connected. | Claude Code: run `/mcp`. VS Code: check `.vscode/mcp.json` and the MCP output log. Check that `rulebase --version` works in a terminal. |
-| Answers look out of date | The index couldn't be refreshed. Answers will say `stale`. | Run `rulebase index <workspace>` to see the error. |
+| Message                                                                                                 | What it means                                                        | What to do                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `No Rule Designer projects (.ruleproject) found under …`                                                | The folder doesn't contain a rule project.                           | Point at the workspace or project folder that has the `.ruleproject` files.                                                             |
+| `The workspace has 2 decision services: A, B. Point rulebase at one of their folders …`                 | Several decision services share the folder.                          | Use the decision-service project folder, e.g. `…\workspace\A`.                                                                          |
+| `No project is marked as a decision service, and 2 projects are not referenced by any other …`          | Classic rule projects, and it's not clear which one is the main one. | Point at the main project's folder.                                                                                                     |
+| `this is an Automation Decision Services (ADS) project …` / `… a Decision Server Insights rule agent …` | Another IBM product with the same folder layout.                     | These aren't supported; Rulebase reads ODM rule projects.                                                                               |
+| `'x.y.Z.field' is not a BOM class or member` (in a `.voc` file)                                         | The vocabulary describes a field the BOM no longer has.              | A real inconsistency in the project: fix the BOM or the vocabulary in Rule Designer.                                                    |
+| `task 't' selects rule '…', which is not in the decision service`                                       | The ruleflow points at a rule that was deleted or moved.             | Fix the ruleflow in Rule Designer.                                                                                                      |
+| `task 't' selects rule 'x', which matches 2 rules in different packages`                                | The ruleflow names a rule that exists in two packages.               | Rulebase keeps both as "possibly selected". Rename one, or check which is meant.                                                        |
+| `could not read member …` / `could not read class header …` (in a `.bom` file)                          | BOM syntax Rulebase doesn't understand yet.                          | Please report it (section 11).                                                                                                          |
+| The assistant says it can't find the Rulebase tools                                                     | The MCP server isn't connected.                                      | Claude Code: run `/mcp`. VS Code: check `.vscode/mcp.json` and the MCP output log. Check that `rulebase --version` works in a terminal. |
+| Answers look out of date                                                                                | The index couldn't be refreshed. Answers will say `stale`.           | Run `rulebase index <workspace>` to see the error.                                                                                      |
 
 Rulebase understands rules written in **English, French, Portuguese and Spanish**. Rules in other languages index with few or no term matches.
 

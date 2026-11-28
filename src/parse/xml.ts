@@ -49,7 +49,11 @@ export function children(node: unknown, name: string): Record<string, unknown>[]
     if (key.startsWith("@") || key.startsWith("#")) continue;
     if (localName(key) !== name) continue;
     for (const item of asArray(value)) {
-      out.push(item && typeof item === "object" ? (item as Record<string, unknown>) : { "#text": String(item ?? "") });
+      out.push(
+        item && typeof item === "object"
+          ? (item as Record<string, unknown>)
+          : { "#text": String(item ?? "") },
+      );
     }
   }
   return out;
@@ -63,7 +67,8 @@ export function child(node: unknown, name: string): Record<string, unknown> | un
 /** Concatenated text and CDATA of an element (not of its children). */
 export function textOf(node: unknown): string {
   if (node == null) return "";
-  if (typeof node === "string" || typeof node === "number" || typeof node === "boolean") return String(node);
+  if (typeof node === "string" || typeof node === "number" || typeof node === "boolean")
+    return String(node);
   if (Array.isArray(node)) return node.map(textOf).join("");
   if (typeof node === "object") {
     const record = node as Record<string, unknown>;
@@ -88,7 +93,8 @@ export function rootElement(doc: unknown): { name: string; node: Record<string, 
   for (const [key, value] of Object.entries(doc as Record<string, unknown>)) {
     if (key.startsWith("?") || key.startsWith("#") || value == null) continue;
     const first = Array.isArray(value) ? value[0] : value;
-    if (first && typeof first === "object") return { name: localName(key), node: first as Record<string, unknown> };
+    if (first && typeof first === "object")
+      return { name: localName(key), node: first as Record<string, unknown> };
   }
   return null;
 }
@@ -102,10 +108,24 @@ export function scalar(node: unknown, name: string): string | undefined {
 /** Decode file bytes: BOM first, then the XML declaration's encoding, then UTF-8, then windows-1252. */
 export function decodeBytes(bytes: Uint8Array): { text: string; encoding: string; lossy: boolean } {
   if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-    return { text: new TextDecoder("utf-8").decode(bytes.subarray(3)), encoding: "utf-8", lossy: false };
+    return {
+      text: new TextDecoder("utf-8").decode(bytes.subarray(3)),
+      encoding: "utf-8",
+      lossy: false,
+    };
   }
-  if (bytes[0] === 0xff && bytes[1] === 0xfe) return { text: new TextDecoder("utf-16le").decode(bytes.subarray(2)), encoding: "utf-16le", lossy: false };
-  if (bytes[0] === 0xfe && bytes[1] === 0xff) return { text: new TextDecoder("utf-16be").decode(bytes.subarray(2)), encoding: "utf-16be", lossy: false };
+  if (bytes[0] === 0xff && bytes[1] === 0xfe)
+    return {
+      text: new TextDecoder("utf-16le").decode(bytes.subarray(2)),
+      encoding: "utf-16le",
+      lossy: false,
+    };
+  if (bytes[0] === 0xfe && bytes[1] === 0xff)
+    return {
+      text: new TextDecoder("utf-16be").decode(bytes.subarray(2)),
+      encoding: "utf-16be",
+      lossy: false,
+    };
   const head = new TextDecoder("latin1").decode(bytes.subarray(0, 200));
   const declared = /<\?xml[^>]*encoding=["']([\w.-]+)["']/i.exec(head)?.[1]?.toLowerCase();
   if (declared && declared !== "utf-8" && declared !== "utf8") {
@@ -116,8 +136,16 @@ export function decodeBytes(bytes: Uint8Array): { text: string; encoding: string
     }
   }
   try {
-    return { text: new TextDecoder("utf-8", { fatal: true }).decode(bytes), encoding: "utf-8", lossy: false };
+    return {
+      text: new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+      encoding: "utf-8",
+      lossy: false,
+    };
   } catch {
-    return { text: new TextDecoder("windows-1252").decode(bytes), encoding: "windows-1252", lossy: !declared };
+    return {
+      text: new TextDecoder("windows-1252").decode(bytes),
+      encoding: "windows-1252",
+      lossy: !declared,
+    };
   }
 }

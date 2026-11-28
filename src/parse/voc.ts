@@ -45,7 +45,11 @@ export function parseVoc(content: string, provenance: Provenance): ParsedVoc {
     if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("!")) continue;
     const sep = separatorIndex(trimmed);
     if (sep < 0) {
-      warnings.push({ path: provenance.path, severity: "info", message: `line ${line}: no '=' in '${trimmed.slice(0, 60)}'` });
+      warnings.push({
+        path: provenance.path,
+        severity: "info",
+        message: `line ${line}: no '=' in '${trimmed.slice(0, 60)}'`,
+      });
       continue;
     }
     const rawKey = unescape(trimmed.slice(0, sep).trim());
@@ -56,13 +60,21 @@ export function parseVoc(content: string, provenance: Provenance): ParsedVoc {
     }
     const hash = rawKey.lastIndexOf("#");
     if (hash < 0) {
-      warnings.push({ path: provenance.path, severity: "info", message: `line ${line}: key without '#': ${rawKey}` });
+      warnings.push({
+        path: provenance.path,
+        severity: "info",
+        message: `line ${line}: key without '#': ${rawKey}`,
+      });
       continue;
     }
     const owner = rawKey.slice(0, hash);
     const key = rawKey.slice(hash + 1);
     if (!KNOWN_KEYS.has(key)) {
-      warnings.push({ path: provenance.path, severity: "info", message: `line ${line}: vocabulary key '${key}' is kept but not used` });
+      warnings.push({
+        path: provenance.path,
+        severity: "info",
+        message: `line ${line}: vocabulary key '${key}' is kept but not used`,
+      });
     }
     entries.push({ owner, key, value, line });
   }

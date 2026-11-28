@@ -10,7 +10,7 @@
  *
  * Every step that cannot place something writes a Warning. Nothing is dropped silently.
  */
-import { BAL_WORDS, compilePattern, PhraseMatcher, stripArticles, tokenizeBal } from "./bal.js";
+import { BAL_WORDS, compilePattern, PhraseMatcher, stripArticles, tokenizeBal, } from "./bal.js";
 import { RULE_KINDS } from "./model.js";
 import { typeCategory } from "./parse/bom.js";
 import { normalize, splitIdentifier } from "./text.js";
@@ -27,17 +27,32 @@ export function link(input) {
         const xomBacked = Boolean(file.bom.properties.origin);
         for (const klass of file.bom.classes) {
             if (classes.has(klass.fqn)) {
-                warnings.push({ path: file.path, severity: "error", message: `class ${klass.fqn} is also defined in ${classes.get(klass.fqn)?.provenance.path}; keeping the first` });
+                warnings.push({
+                    path: file.path,
+                    severity: "error",
+                    message: `class ${klass.fqn} is also defined in ${classes.get(klass.fqn)?.provenance.path}; keeping the first`,
+                });
                 continue;
             }
-            classes.set(klass.fqn, { ...klass, virtual: !xomBacked, provenance: { ...klass.provenance, project: file.project } });
+            classes.set(klass.fqn, {
+                ...klass,
+                virtual: !xomBacked,
+                provenance: { ...klass.provenance, project: file.project },
+            });
         }
         for (const member of file.bom.members) {
             if (members.has(member.id)) {
-                warnings.push({ path: file.path, severity: "error", message: `member ${member.id} is defined twice` });
+                warnings.push({
+                    path: file.path,
+                    severity: "error",
+                    message: `member ${member.id} is defined twice`,
+                });
                 continue;
             }
-            members.set(member.id, { ...member, provenance: { ...member.provenance, project: file.project } });
+            members.set(member.id, {
+                ...member,
+                provenance: { ...member.provenance, project: file.project },
+            });
         }
     }
     const membersByClass = new Map();
@@ -59,7 +74,10 @@ export function link(input) {
         klass.superTypes = klass.superTypes.map((name) => resolveTypeName(name, klass));
         for (const member of membersByClass.get(klass.fqn) ?? []) {
             member.type = resolveTypeName(member.type, klass);
-            member.params = member.params.map((param) => ({ ...param, type: resolveTypeName(param.type, klass) }));
+            member.params = member.params.map((param) => ({
+                ...param,
+                type: resolveTypeName(param.type, klass),
+            }));
         }
     }
     for (const klass of classes.values()) {
@@ -97,12 +115,20 @@ export function link(input) {
                 continue;
             const resolved = resolveOwner(entry.owner, classes, membersByClass);
             if (!resolved) {
-                warnings.push({ path: voc.provenance.path, severity: "error", message: `line ${entry.line}: '${entry.owner}' is not a BOM class or member` });
+                warnings.push({
+                    path: voc.provenance.path,
+                    severity: "error",
+                    message: `line ${entry.line}: '${entry.owner}' is not a BOM class or member`,
+                });
                 continue;
             }
             if (entry.key === "concept.label") {
                 if (resolved.memberId) {
-                    warnings.push({ path: voc.provenance.path, severity: "info", message: `line ${entry.line}: concept label on a member is ignored` });
+                    warnings.push({
+                        path: voc.provenance.path,
+                        severity: "info",
+                        message: `line ${entry.line}: concept label on a member is ignored`,
+                    });
                     continue;
                 }
                 labels.set(resolved.classFqn, entry.value);
@@ -111,7 +137,11 @@ export function link(input) {
             if (entry.key !== "phrase.navigation" && entry.key !== "phrase.action")
                 continue;
             if (!resolved.memberId) {
-                warnings.push({ path: voc.provenance.path, severity: "info", message: `line ${entry.line}: phrase on a class (no member) is ignored` });
+                warnings.push({
+                    path: voc.provenance.path,
+                    severity: "info",
+                    message: `line ${entry.line}: phrase on a class (no member) is ignored`,
+                });
                 continue;
             }
             verbalizations.push({
@@ -134,7 +164,7 @@ export function link(input) {
     // ---- 3. Phrases -----------------------------------------------------------
     const phrases = new Map();
     const patterns = [];
-    const labelOf = (fqn) => (fqn ? (classes.get(fqn)?.label ?? classes.get(fqn)?.name ?? fqn) : "?");
+    const labelOf = (fqn) => fqn ? (classes.get(fqn)?.label ?? classes.get(fqn)?.name ?? fqn) : "?";
     for (const klass of classes.values()) {
         const label = klass.label ?? splitIdentifier(klass.name);
         const phrase = {
@@ -153,7 +183,9 @@ export function link(input) {
     }
     for (const verbalization of verbalizations) {
         const member = members.get(verbalization.memberId);
-        const valueTerm = verbalization.kind === "action" && member.kind === "attribute" ? lastBraceTerm(verbalization.template) : undefined;
+        const valueTerm = verbalization.kind === "action" && member.kind === "attribute"
+            ? lastBraceTerm(verbalization.template)
+            : undefined;
         const { items, slotNames } = compilePattern(verbalization.template, valueTerm);
         const slots = slotNames.map((name) => {
             if (name === "this")
@@ -195,7 +227,11 @@ export function link(input) {
                 const prior = artifacts.get(artifact.id);
                 if (artifact.type === "package" && prior.type === "package")
                     continue; // same package in two projects
-                warnings.push({ path: artifact.provenance.path, severity: "error", message: `id ${artifact.id} is also used by ${prior.provenance.path}` });
+                warnings.push({
+                    path: artifact.provenance.path,
+                    severity: "error",
+                    message: `id ${artifact.id} is also used by ${prior.provenance.path}`,
+                });
                 continue;
             }
             artifacts.set(artifact.id, artifact);
@@ -226,7 +262,11 @@ export function link(input) {
         for (const variable of artifact.variables ?? []) {
             const key = stripArticles(normalize(variable.verbalization));
             if (!classes.has(variable.type) && !isPrimitive(variable.type)) {
-                warnings.push({ path: artifact.provenance.path, severity: "error", message: `variable '${variable.name}' has type ${variable.type}, which is not in the BOM` });
+                warnings.push({
+                    path: artifact.provenance.path,
+                    severity: "error",
+                    message: `variable '${variable.name}' has type ${variable.type}, which is not in the BOM`,
+                });
             }
             variables.set(key, variable);
             const nameKey = normalize(variable.name);
@@ -272,10 +312,12 @@ export function link(input) {
     const uses = new Map();
     // Everything matching depends on besides the artifact itself.
     const vocabularyKey = input.files
-        .filter((file) => file.kind !== "artifact" || (file.artifacts ?? []).some((artifact) => artifact.type === "variableSet"))
+        .filter((file) => file.kind !== "artifact" ||
+        (file.artifacts ?? []).some((artifact) => artifact.type === "variableSet"))
         .map((file) => `${file.path}:${file.hash}`)
         .sort()
-        .join("|") + `|${locale ?? ""}|${JSON.stringify(input.projects.map((project) => project.parameters ?? []))}`;
+        .join("|") +
+        `|${locale ?? ""}|${JSON.stringify(input.projects.map((project) => project.parameters ?? []))}`;
     const fileHash = new Map();
     for (const file of input.files)
         for (const artifact of file.artifacts ?? [])
@@ -289,7 +331,9 @@ export function link(input) {
         memberNames.set(member.name, list);
     }
     for (const artifact of artifacts.values()) {
-        const cacheKey = useCache ? `${vocabularyKey}\u0000${artifact.id}\u0000${fileHash.get(artifact.id) ?? ""}` : "";
+        const cacheKey = useCache
+            ? `${vocabularyKey}\u0000${artifact.id}\u0000${fileHash.get(artifact.id) ?? ""}`
+            : "";
         const cached = useCache?.get(cacheKey);
         if (cached) {
             uses.set(artifact.id, cached.list);
@@ -312,15 +356,33 @@ export function link(input) {
                 const variable = localEnv.variables.get(token.value);
                 const global = variables.get(token.value);
                 if (global)
-                    list.push({ target: `var:${global.name}`, where, text: `'${token.raw}'`, resolved: true });
+                    list.push({
+                        target: `var:${global.name}`,
+                        where,
+                        text: `'${token.raw}'`,
+                        resolved: true,
+                    });
                 else if (!variable) {
-                    warnings.push({ path: artifact.provenance.path, severity: "info", message: `'${token.raw}' in ${where} is not a ruleset or rule variable` });
+                    warnings.push({
+                        path: artifact.provenance.path,
+                        severity: "info",
+                        message: `'${token.raw}' in ${where} is not a ruleset or rule variable`,
+                    });
                 }
             }
         };
         if (RULE_KINDS.includes(artifact.type)) {
-            if (artifact.bal && !artifact.definitions && !artifact.conditions && !artifact.actions && !artifact.elseActions && artifact.type === "actionRule") {
-                warnings.push({ path: artifact.provenance.path, severity: "info", message: "no if/then (or si/alors) sections found; the whole rule text is scanned as one body" });
+            if (artifact.bal &&
+                !artifact.definitions &&
+                !artifact.conditions &&
+                !artifact.actions &&
+                !artifact.elseActions &&
+                artifact.type === "actionRule") {
+                warnings.push({
+                    path: artifact.provenance.path,
+                    severity: "info",
+                    message: "no if/then (or si/alors) sections found; the whole rule text is scanned as one body",
+                });
                 scan(artifact.bal, "body");
             }
             scan(artifact.definitions, "definitions");
@@ -378,7 +440,10 @@ export function link(input) {
                 type: "package",
                 name: artifact.package,
                 package: artifact.package,
-                provenance: { project: artifact.provenance.project, path: artifact.provenance.path.replace(/\/[^/]+$/, "") },
+                provenance: {
+                    project: artifact.provenance.project,
+                    path: artifact.provenance.path.replace(/\/[^/]+$/, ""),
+                },
             });
         }
     }
@@ -388,7 +453,11 @@ export function link(input) {
         for (let i = 1; i < parts.length; i++) {
             const parent = parts.slice(0, i).join(".");
             if (packages.has(parent))
-                edges.push({ type: "CONTAINS", from: `pkg:${parent}`, to: `pkg:${parts.slice(0, i + 1).join(".")}` });
+                edges.push({
+                    type: "CONTAINS",
+                    from: `pkg:${parent}`,
+                    to: `pkg:${parts.slice(0, i + 1).join(".")}`,
+                });
         }
     }
     const rulesByName = new Map();
@@ -397,7 +466,10 @@ export function link(input) {
             continue;
         if (artifact.package)
             edges.push({ type: "CONTAINS", from: `pkg:${artifact.package}`, to: artifact.id });
-        for (const key of [artifact.name, artifact.package ? `${artifact.package}.${artifact.name}` : artifact.name]) {
+        for (const key of [
+            artifact.name,
+            artifact.package ? `${artifact.package}.${artifact.name}` : artifact.name,
+        ]) {
             const list = rulesByName.get(key) ?? [];
             if (!list.includes(artifact.id))
                 list.push(artifact.id);
@@ -409,7 +481,10 @@ export function link(input) {
     for (const artifact of artifacts.values()) {
         if (artifact.type !== "ruleflow")
             continue;
-        for (const key of new Set([artifact.name, artifact.package ? `${artifact.package}.${artifact.name}` : artifact.name])) {
+        for (const key of new Set([
+            artifact.name,
+            artifact.package ? `${artifact.package}.${artifact.name}` : artifact.name,
+        ])) {
             flowsByName.set(key, [...(flowsByName.get(key) ?? []), artifact]);
         }
     }
@@ -420,7 +495,11 @@ export function link(input) {
             return { flows: [byId], resolved: true };
         const named = flowsByName.get(ref) ?? [];
         if (named.length > 1) {
-            warnings.push({ path, severity: "error", message: `${what} '${ref}' matches ${named.length} ruleflows (${named.map((item) => item.provenance.path).join(", ")}); all are kept` });
+            warnings.push({
+                path,
+                severity: "error",
+                message: `${what} '${ref}' matches ${named.length} ruleflows (${named.map((item) => item.provenance.path).join(", ")}); all are kept`,
+            });
         }
         return { flows: named, resolved: named.length === 1 };
     };
@@ -431,17 +510,32 @@ export function link(input) {
             const reason = taskReason(flow, task.id);
             for (const name of task.packages) {
                 if (!packages.has(name)) {
-                    warnings.push({ path: flow.provenance.path, severity: "error", message: `task '${task.id}' selects package '${name}', which is not in the decision service` });
+                    warnings.push({
+                        path: flow.provenance.path,
+                        severity: "error",
+                        message: `task '${task.id}' selects package '${name}', which is not in the decision service`,
+                    });
                     continue;
                 }
-                edges.push({ type: "SELECTS", from: `${flow.id}#${task.id}`, to: `pkg:${name}`, detail: reason });
+                edges.push({
+                    type: "SELECTS",
+                    from: `${flow.id}#${task.id}`,
+                    to: `pkg:${name}`,
+                    detail: reason,
+                });
             }
             for (const name of task.rules) {
                 // A UUID is exact. `package.name` is exact. A bare name may match rules in several packages.
                 const byId = artifacts.get(name);
-                const ids = byId && RULE_KINDS.includes(byId.type) ? [byId.id] : (rulesByName.get(name) ?? []);
+                const ids = byId && RULE_KINDS.includes(byId.type)
+                    ? [byId.id]
+                    : (rulesByName.get(name) ?? []);
                 if (!ids.length) {
-                    warnings.push({ path: flow.provenance.path, severity: "error", message: `task '${task.id}' selects rule '${name}', which is not in the decision service` });
+                    warnings.push({
+                        path: flow.provenance.path,
+                        severity: "error",
+                        message: `task '${task.id}' selects rule '${name}', which is not in the decision service`,
+                    });
                     continue;
                 }
                 const exact = ids.length === 1;
@@ -453,14 +547,30 @@ export function link(input) {
                     });
                 }
                 for (const id of ids)
-                    edges.push({ type: "SELECTS", from: `${flow.id}#${task.id}`, to: id, detail: exact ? reason : `${reason}; ambiguous rule name '${name}'`, resolved: exact });
+                    edges.push({
+                        type: "SELECTS",
+                        from: `${flow.id}#${task.id}`,
+                        to: id,
+                        detail: exact ? reason : `${reason}; ambiguous rule name '${name}'`,
+                        resolved: exact,
+                    });
             }
             if (task.kind === "subflow" && task.subflow) {
                 const { flows: targets, resolved } = resolveFlow(task.subflow, flow.provenance.path, `subflow task '${task.id}' runs`);
                 for (const target of targets)
-                    edges.push({ type: "SUBFLOW", from: `${flow.id}#${task.id}`, to: target.id, detail: reason, resolved });
+                    edges.push({
+                        type: "SUBFLOW",
+                        from: `${flow.id}#${task.id}`,
+                        to: target.id,
+                        detail: reason,
+                        resolved,
+                    });
                 if (!targets.length)
-                    warnings.push({ path: flow.provenance.path, severity: "error", message: `subflow task '${task.id}' runs '${task.subflow}', which is not found` });
+                    warnings.push({
+                        path: flow.provenance.path,
+                        severity: "error",
+                        message: `subflow task '${task.id}' runs '${task.subflow}', which is not found`,
+                    });
             }
         }
     }
@@ -475,16 +585,35 @@ export function link(input) {
                 ? resolveFlow(info.ruleflowName, op.provenance.path, "operation runs ruleflow")
                 : { flows: [], resolved: false };
         for (const flow of found.flows)
-            edges.push({ type: "RUNS", from: op.id, to: flow.id, detail: info.rulesetName, resolved: found.resolved });
+            edges.push({
+                type: "RUNS",
+                from: op.id,
+                to: flow.id,
+                detail: info.rulesetName,
+                resolved: found.resolved,
+            });
         if (!found.flows.length && (info.ruleflowName || info.ruleflowUuid)) {
-            warnings.push({ path: op.provenance.path, severity: "error", message: `operation runs ruleflow '${info.ruleflowName ?? info.ruleflowUuid}', which is not found` });
+            warnings.push({
+                path: op.provenance.path,
+                severity: "error",
+                message: `operation runs ruleflow '${info.ruleflowName ?? info.ruleflowUuid}', which is not found`,
+            });
         }
         for (const input of info.signature) {
             const variable = [...variables.values()].find((item) => item.name === input.name);
             if (variable)
-                edges.push({ type: "BINDS", from: op.id, to: `var:${variable.name}`, detail: input.direction });
+                edges.push({
+                    type: "BINDS",
+                    from: op.id,
+                    to: `var:${variable.name}`,
+                    detail: input.direction,
+                });
             else
-                warnings.push({ path: op.provenance.path, severity: "error", message: `signature names '${input.name}', which is not a ruleset parameter` });
+                warnings.push({
+                    path: op.provenance.path,
+                    severity: "error",
+                    message: `signature names '${input.name}', which is not a ruleset parameter`,
+                });
         }
     }
     for (const klass of classes.values()) {
@@ -501,9 +630,15 @@ export function link(input) {
             if (members.has(target) || classes.has(target) || phrases.has(target))
                 continue;
             const tokens = tokenizeBal(target);
-            const found = matcher.match(tokens, env).some((match) => match.from === 0 && match.to === tokens.length);
+            const found = matcher
+                .match(tokens, env)
+                .some((match) => match.from === 0 && match.to === tokens.length);
             if (!found) {
-                warnings.push({ path: "rulebase.glossary.yaml", severity: "error", message: `'${entry.phrase}' means '${target}', which is not a vocabulary term` });
+                warnings.push({
+                    path: "rulebase.glossary.yaml",
+                    severity: "error",
+                    message: `'${entry.phrase}' means '${target}', which is not a vocabulary term`,
+                });
             }
         }
     }
@@ -538,7 +673,11 @@ export function link(input) {
 function applyB2x(b2xClass, file, classes, membersByClass, ancestors, warnings) {
     const klass = classes.get(b2xClass.businessName);
     if (!klass) {
-        warnings.push({ path: file.path, severity: "error", message: `B2X maps ${b2xClass.businessName}, which is not a BOM class` });
+        warnings.push({
+            path: file.path,
+            severity: "error",
+            message: `B2X maps ${b2xClass.businessName}, which is not a BOM class`,
+        });
         return;
     }
     if (b2xClass.executionName && b2xClass.executionName !== b2xClass.businessName) {
@@ -549,14 +688,22 @@ function applyB2x(b2xClass, file, classes, membersByClass, ancestors, warnings) 
     const reachable = [klass.fqn, ...(ancestors.get(klass.fqn) ?? [])].flatMap((fqn) => membersByClass.get(fqn) ?? []);
     for (const b2xMember of b2xClass.members) {
         const candidates = own.filter((member) => member.name === b2xMember.name &&
-            (b2xMember.kind === "attribute" ? member.kind === "attribute" : member.kind !== "attribute" && member.params.length === b2xMember.paramTypes.length));
+            (b2xMember.kind === "attribute"
+                ? member.kind === "attribute"
+                : member.kind !== "attribute" && member.params.length === b2xMember.paramTypes.length));
         if (!candidates.length && b2xMember.name.includes(".")) {
             // `.b2xa` writes a conversion operator as a method named after its target type.
             const target = b2xMember.name;
-            candidates.push(...own.filter((member) => member.name === "operator" && (member.type === target || member.type.split(".").pop() === target.split(".").pop()) && member.params.length === b2xMember.paramTypes.length));
+            candidates.push(...own.filter((member) => member.name === "operator" &&
+                (member.type === target || member.type.split(".").pop() === target.split(".").pop()) &&
+                member.params.length === b2xMember.paramTypes.length));
         }
         if (!candidates.length) {
-            warnings.push({ path: file.path, severity: "error", message: `B2X implements ${klass.fqn}.${b2xMember.name}, which is not a BOM member` });
+            warnings.push({
+                path: file.path,
+                severity: "error",
+                message: `B2X implements ${klass.fqn}.${b2xMember.name}, which is not a BOM member`,
+            });
             continue;
         }
         for (const member of candidates) {
@@ -584,10 +731,16 @@ function derivedFrom(code, self, reachable) {
     return [...out].sort();
 }
 function chooseLocale(input, vocs, warnings) {
-    const available = [...new Set(vocs.map((voc) => voc.locale).filter((item) => Boolean(item)))];
+    const available = [
+        ...new Set(vocs.map((voc) => voc.locale).filter((item) => Boolean(item))),
+    ];
     if (input.locale) {
         if (vocs.length && !vocs.some((voc) => localeMatches(voc.locale, input.locale))) {
-            warnings.push({ path: "rulebase.yaml", severity: "error", message: `locale '${input.locale}' has no vocabulary file (found: ${available.join(", ") || "none"})` });
+            warnings.push({
+                path: "rulebase.yaml",
+                severity: "error",
+                message: `locale '${input.locale}' has no vocabulary file (found: ${available.join(", ") || "none"})`,
+            });
         }
         return input.locale;
     }
@@ -601,12 +754,20 @@ function chooseLocale(input, vocs, warnings) {
     const ruleLocale = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0];
     if (ruleLocale && vocs.some((voc) => localeMatches(voc.locale, ruleLocale))) {
         if (available.length > 1) {
-            warnings.push({ path: "rulebase.yaml", severity: "info", message: `vocabulary has locales ${available.join(", ")}; using ${ruleLocale}, the locale most rules use` });
+            warnings.push({
+                path: "rulebase.yaml",
+                severity: "info",
+                message: `vocabulary has locales ${available.join(", ")}; using ${ruleLocale}, the locale most rules use`,
+            });
         }
         return ruleLocale;
     }
     if (available.length > 1) {
-        warnings.push({ path: "rulebase.yaml", severity: "error", message: `vocabulary has locales ${available.join(", ")} and none matches the rules; set 'locale:' in rulebase.yaml` });
+        warnings.push({
+            path: "rulebase.yaml",
+            severity: "error",
+            message: `vocabulary has locales ${available.join(", ")} and none matches the rules; set 'locale:' in rulebase.yaml`,
+        });
     }
     return available[0];
 }
@@ -640,7 +801,9 @@ function resolveOwner(owner, classes, membersByClass) {
         return { classFqn, memberId: (attribute ?? candidates[0]).id };
     }
     const argTypes = args ? args.split(",").map((item) => item.trim()) : [];
-    const exact = candidates.find((member) => member.kind !== "attribute" && member.params.length === argTypes.length && member.params.every((param, i) => sameType(param.type, argTypes[i])));
+    const exact = candidates.find((member) => member.kind !== "attribute" &&
+        member.params.length === argTypes.length &&
+        member.params.every((param, i) => sameType(param.type, argTypes[i])));
     const byCount = candidates.find((member) => member.kind !== "attribute" && member.params.length === argTypes.length);
     const chosen = exact ?? byCount;
     return chosen ? { classFqn, memberId: chosen.id } : null;
@@ -649,7 +812,12 @@ function resolveOwner(owner, classes, membersByClass) {
 function sameType(a, b) {
     const canon = (t) => {
         const x = t.trim();
-        const map = { "java.lang.String": "string", "java.lang.Boolean": "boolean", "java.lang.Integer": "int", "java.lang.Double": "double" };
+        const map = {
+            "java.lang.String": "string",
+            "java.lang.Boolean": "boolean",
+            "java.lang.Integer": "int",
+            "java.lang.Double": "double",
+        };
         return map[x] ?? x;
     };
     return canon(a) === canon(b) || canon(a).split(".").pop() === canon(b).split(".").pop();
@@ -658,13 +826,17 @@ function isPrimitive(type) {
     return /^(int|long|short|byte|double|float|boolean|char|string|java\.lang\.\w+|java\.util\.\w+|java\.math\.\w+)$/.test(type);
 }
 function lastBraceTerm(template) {
-    const braces = [...template.matchAll(/\{([^}]*)\}/g)].map((match) => match[1].trim()).filter((name) => name !== "this" && !/^\d+$/.test(name));
+    const braces = [...template.matchAll(/\{([^}]*)\}/g)]
+        .map((match) => match[1].trim())
+        .filter((name) => name !== "this" && !/^\d+$/.test(name));
     return braces[braces.length - 1];
 }
 function renderTemplate(template, slots, labelOf, valueTerm) {
     let valueDone = false;
     const lastValue = valueTerm
-        ? [...template.matchAll(/\{([^}]*)\}/g)].map((match) => match.index ?? 0).filter((_, i, all) => i === all.length - 1)[0]
+        ? [...template.matchAll(/\{([^}]*)\}/g)]
+            .map((match) => match.index ?? 0)
+            .filter((_, i, all) => i === all.length - 1)[0]
         : -1;
     return template
         .replace(/\{([^}]*)\}/g, (whole, name, offset) => {
@@ -705,7 +877,11 @@ function withDefinitions(env, artifact, matcher, warnings) {
             variables.set(name, type);
         else {
             variables.set(name, "?");
-            warnings.push({ path: artifact.provenance.path, severity: "info", message: `definition '${raw}' could not be typed; uses through it are unresolved` });
+            warnings.push({
+                path: artifact.provenance.path,
+                severity: "info",
+                message: `definition '${raw}' could not be typed; uses through it are unresolved`,
+            });
         }
     }
     return local;
@@ -714,9 +890,13 @@ function withDefinitions(env, artifact, matcher, warnings) {
 function expressionType(tokens, env, matcher) {
     // `set 'minimum score' to 200 ;`, `set 'prefix' to "LN-" ;`: a literal, or arithmetic on literals
     const meaningful = tokens.filter((token) => !(token.kind === "punct" && token.value === ";"));
-    if (meaningful.length && meaningful.every((token) => token.kind === "number" || token.kind === "op" || (token.kind === "punct" && "()".includes(token.value))))
+    if (meaningful.length &&
+        meaningful.every((token) => token.kind === "number" ||
+            token.kind === "op" ||
+            (token.kind === "punct" && "()".includes(token.value))))
         return "number";
-    if (meaningful.length && meaningful.every((token) => token.kind === "string" || (token.kind === "op" && token.value === "+")))
+    if (meaningful.length &&
+        meaningful.every((token) => token.kind === "string" || (token.kind === "op" && token.value === "+")))
         return "string";
     const words = [];
     for (const token of tokens) {
@@ -733,7 +913,9 @@ function expressionType(tokens, env, matcher) {
     // `0.37 * the yearly income of 'the borrower'`: arithmetic over numeric navigations is a number
     const arithmetic = tokens.some((token) => token.kind === "op" && "+-*/".includes(token.value));
     const navigations = matches.filter((match) => match.compiled.phrase.kind === "navigation");
-    if (arithmetic && navigations.length && navigations.every((match) => typeCategory(match.compiled.phrase.type) === "number"))
+    if (arithmetic &&
+        navigations.length &&
+        navigations.every((match) => typeCategory(match.compiled.phrase.type) === "number"))
         return "number";
     const nav = navigations.find((match) => match.from === 0);
     return nav?.compiled.phrase.type;
@@ -745,8 +927,18 @@ function usesFromMatch(match, where, text, tokens) {
     const end = tokens[match.to - 1]?.end ?? text.length;
     const snippet = text.slice(start, end).replace(/\s+/g, " ").trim();
     // Setter phrases: English, French, Portuguese, Spanish
-    const writes = phrase.kind === "action" && /^\s*(set|make it|assigner|mettre|d\u00e9finir|definir|rendre|atribuir|definir|asignar|establecer)\b/i.test(phrase.template);
-    return [{ target, phraseId: phrase.id, where, text: snippet, resolved: match.resolved, ...(writes ? { writes } : {}) }];
+    const writes = phrase.kind === "action" &&
+        /^\s*(set|make it|assigner|mettre|d\u00e9finir|definir|rendre|atribuir|definir|asignar|establecer)\b/i.test(phrase.template);
+    return [
+        {
+            target,
+            phraseId: phrase.id,
+            where,
+            text: snippet,
+            resolved: match.resolved,
+            ...(writes ? { writes } : {}),
+        },
+    ];
 }
 /**
  * IRL (technical rules, functions): best effort, never silent.
@@ -815,9 +1007,14 @@ function irlUses(irl, memberNames, members, classes) {
     // Member access: `?b.x`, `?b.setX(`, `obj.x`.
     for (const match of code.matchAll(/(\?\w+|[A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)/g)) {
         const at = match.index ?? 0;
-        if (classSpans.some(([from, to]) => at >= from && at < to && /^[A-Za-z_]/.test(match[1]) && classOf(`${match[1]}.${match[2]}`)))
+        if (classSpans.some(([from, to]) => at >= from &&
+            at < to &&
+            /^[A-Za-z_]/.test(match[1]) &&
+            classOf(`${match[1]}.${match[2]}`)))
             continue;
-        if (classOf(`${match[1]}.${match[2]}`) || /^[a-z]+$/.test(match[1]) && [...classes.keys()].some((fqn) => fqn.startsWith(`${match[1]}.`)))
+        if (classOf(`${match[1]}.${match[2]}`) ||
+            (/^[a-z]+$/.test(match[1]) &&
+                [...classes.keys()].some((fqn) => fqn.startsWith(`${match[1]}.`))))
             continue;
         const { name, writes } = accessor(match[2]);
         const bound = match[1].startsWith("?") ? bindings.get(match[1].slice(1)) : undefined;

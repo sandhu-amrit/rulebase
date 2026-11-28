@@ -7,7 +7,9 @@ export function renderReport(kb, gates, drift) {
     const counts = Object.entries(overview.counts).filter(([, value]) => value);
     const skipped = Object.entries(kb.meta.skipped);
     const row = (cells) => `<tr>${cells.map((cell) => `<td>${esc(cell)}</td>`).join("")}</tr>`;
-    const list = (items) => items.length ? `<ul>${items.map((item) => `<li>${esc(item.name)} <span class="muted">${esc(item.path)}</span></li>`).join("")}</ul>` : `<p class="muted">None.</p>`;
+    const list = (items) => items.length
+        ? `<ul>${items.map((item) => `<li>${esc(item.name)} <span class="muted">${esc(item.path)}</span></li>`).join("")}</ul>`
+        : `<p class="muted">None.</p>`;
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -41,7 +43,9 @@ export function renderReport(kb, gates, drift) {
 <h2>Quality gates</h2>
 <table><tr><th></th><th>Gate</th><th>Result</th></tr>
 ${gates
-        .map((gate) => `<tr><td class="${gate.pass ? "ok" : "bad"}">${gate.pass ? "PASS" : "FAIL"}</td><td>${esc(gate.label)}</td><td>${esc(gate.detail)}${gate.failures?.length ? `<details><summary>${gate.failures.length} item(s)</summary><ul>${gate.failures.map((item) => `<li class="mono">${esc(item)}</li>`).join("")}</ul></details>` : ""}</td></tr>`)
+        .map((gate) => `<tr><td class="${gate.pass ? "ok" : "bad"}">${gate.pass ? "PASS" : "FAIL"}</td><td>${esc(gate.label)}</td><td>${esc(gate.detail)}${gate.failures?.length
+        ? `<details><summary>${gate.failures.length} item(s)</summary><ul>${gate.failures.map((item) => `<li class="mono">${esc(item)}</li>`).join("")}</ul></details>`
+        : ""}</td></tr>`)
         .join("\n")}
 </table>
 

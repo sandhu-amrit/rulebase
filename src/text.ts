@@ -2,12 +2,48 @@
 
 /** Articles are dropped before phrase matching: BAL adds them freely ("the credit score of 'the borrower'"). */
 export const ARTICLES = new Set([
-  "the", "a", "an",
+  "the",
+  "a",
+  "an",
   // French: definite, indefinite and partitive articles (BAL inserts them around {this,PARTITIVE_ARTICLE})
-  "le", "la", "les", "l", "un", "une", "des", "du", "de", "d",
+  "le",
+  "la",
+  "les",
+  "l",
+  "un",
+  "une",
+  "des",
+  "du",
+  "de",
+  "d",
   // Portuguese and Spanish (contractions with de / a / em / por included; "no" is left out, it is an English keyword)
-  "o", "os", "as", "um", "uma", "uns", "umas", "do", "da", "dos", "das", "na", "nos", "nas", "ao", "aos", "pelo", "pela", "pelos", "pelas",
-  "el", "los", "las", "unos", "unas", "del", "al",
+  "o",
+  "os",
+  "as",
+  "um",
+  "uma",
+  "uns",
+  "umas",
+  "do",
+  "da",
+  "dos",
+  "das",
+  "na",
+  "nos",
+  "nas",
+  "ao",
+  "aos",
+  "pelo",
+  "pela",
+  "pelos",
+  "pelas",
+  "el",
+  "los",
+  "las",
+  "unos",
+  "unas",
+  "del",
+  "al",
 ]);
 
 /**
@@ -88,7 +124,8 @@ export function editDistance(a: string, b: string, max = 2): number {
     for (let j = 1; j < cols; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
       let value = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
-      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) value = Math.min(value, d[i - 2][j - 2] + 1);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1])
+        value = Math.min(value, d[i - 2][j - 2] + 1);
       d[i][j] = value;
       if (value < rowMin) rowMin = value;
     }

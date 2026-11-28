@@ -65,9 +65,15 @@ export async function main(argv: string[]): Promise<number> {
       console.log(`wrote ${result.files} files to ${result.out} (${result.words} words replaced)`);
       console.log("shape check, original vs anonymized:");
       for (const row of result.comparison) {
-        console.log(`  ${row.original === row.anonymized ? "same" : "DIFF"}  ${row.metric.padEnd(18)} ${String(row.original).padStart(7)} ${String(row.anonymized).padStart(7)}`);
+        console.log(
+          `  ${row.original === row.anonymized ? "same" : "DIFF"}  ${row.metric.padEnd(18)} ${String(row.original).padStart(7)} ${String(row.anonymized).padStart(7)}`,
+        );
       }
-      console.log(result.ok ? "The anonymized copy indexes the same way. Review it before sharing: comments and free text are replaced word by word, not removed." : "The copies differ: the anonymizer changed meaning somewhere. Please report the DIFF lines (they contain no business data).");
+      console.log(
+        result.ok
+          ? "The anonymized copy indexes the same way. Review it before sharing: comments and free text are replaced word by word, not removed."
+          : "The copies differ: the anonymizer changed meaning somewhere. Please report the DIFF lines (they contain no business data).",
+      );
       return result.ok ? 0 : 1;
     } catch (error) {
       console.error(`rulebase: ${error instanceof Error ? error.message : String(error)}`);
@@ -114,17 +120,31 @@ function usage(message: string): number {
 function index(session: Session, full: boolean): number {
   const { kb, stats } = session.rebuild(full);
   const overview = kb.listDecisionServices();
-  console.log(`${kb.meta.decisionService}: ${kb.meta.projects.length} project(s), ${stats.files} files`);
-  console.log(`  parsed ${stats.parsed}, reused ${stats.reused}; scan ${stats.scanMs} ms, parse ${stats.parseMs} ms, link ${stats.linkMs} ms`);
-  console.log(`  ${Object.entries(overview.counts).filter(([, value]) => value).map(([key, value]) => `${key} ${value}`).join(", ")}`);
+  console.log(
+    `${kb.meta.decisionService}: ${kb.meta.projects.length} project(s), ${stats.files} files`,
+  );
+  console.log(
+    `  parsed ${stats.parsed}, reused ${stats.reused}; scan ${stats.scanMs} ms, parse ${stats.parseMs} ms, link ${stats.linkMs} ms`,
+  );
+  console.log(
+    `  ${Object.entries(overview.counts)
+      .filter(([, value]) => value)
+      .map(([key, value]) => `${key} ${value}`)
+      .join(", ")}`,
+  );
   const errors = kb.warnings().filter((warning) => warning.severity === "error");
   if (errors.length) {
     console.log(`  ${errors.length} error(s):`);
-    for (const warning of errors.slice(0, 20)) console.log(`    ${warning.path}: ${warning.message}`);
-    if (errors.length > 20) console.log(`    ... ${errors.length - 20} more (rulebase report lists all)`);
+    for (const warning of errors.slice(0, 20))
+      console.log(`    ${warning.path}: ${warning.message}`);
+    if (errors.length > 20)
+      console.log(`    ... ${errors.length - 20} more (rulebase report lists all)`);
   }
   const drift = session.drift();
-  if (drift.from) console.log(`  drift: +${drift.added.length} -${drift.removed.length} ~${drift.changed.length}`);
+  if (drift.from)
+    console.log(
+      `  drift: +${drift.added.length} -${drift.removed.length} ~${drift.changed.length}`,
+    );
   console.log(`  cache ${session.store.file} (${Math.round(session.store.sizeBytes() / 1024)} KB)`);
   return errors.length ? 1 : 0;
 }
@@ -156,7 +176,8 @@ function report(session: Session, args: string[]): number {
 function query(session: Session, args: string[]): number {
   const name = args.shift();
   const tool = TOOLS.find((item) => item.name === name);
-  if (!tool) return usage(`unknown tool '${name}'. Tools: ${TOOLS.map((item) => item.name).join(", ")}`);
+  if (!tool)
+    return usage(`unknown tool '${name}'. Tools: ${TOOLS.map((item) => item.name).join(", ")}`);
   const raw = args.length ? (JSON.parse(args.join(" ")) as unknown) : {};
   const input = z.object(tool.input).strict().parse(raw) as Record<string, unknown>;
   console.log(JSON.stringify(tool.run(session, input), null, 2));

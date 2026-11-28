@@ -10,7 +10,7 @@ import { extensionOf, parseArtifactFile } from "./parse/artifacts.js";
 import { parseB2x } from "./parse/b2x.js";
 import { parseBom } from "./parse/bom.js";
 import { parseVoc } from "./parse/voc.js";
-import { fileContent, scanWorkspace, sha } from "./workspace.js";
+import { fileContent, scanWorkspace, sha, } from "./workspace.js";
 /** Bump when a parser changes output shape, so cached parses are not reused. */
 export const PARSER_VERSION = "12";
 export function cacheKey(file) {
@@ -22,7 +22,10 @@ export function parseFile(file) {
     const ext = extensionOf(file.path);
     const base = { path: file.path, hash: file.hash, project: file.project };
     if (ext === ".bom") {
-        const bomEntry = file.path.split("/").pop()?.replace(/\.bom$/i, "") ?? file.path;
+        const bomEntry = file.path
+            .split("/")
+            .pop()
+            ?.replace(/\.bom$/i, "") ?? file.path;
         const bom = parseBom(content, provenance, bomEntry);
         return { ...base, kind: "bom", bom, warnings: bom.warnings };
     }
@@ -49,16 +52,39 @@ export function loadGlossary(root, configured) {
         raw = parseYaml(text);
     }
     catch (error) {
-        return { entries: [], path: rel, hash: sha(text), warnings: [{ path: rel, severity: "error", message: `not valid YAML: ${error instanceof Error ? error.message : String(error)}` }] };
+        return {
+            entries: [],
+            path: rel,
+            hash: sha(text),
+            warnings: [
+                {
+                    path: rel,
+                    severity: "error",
+                    message: `not valid YAML: ${error instanceof Error ? error.message : String(error)}`,
+                },
+            ],
+        };
     }
-    const list = Array.isArray(raw) ? raw : Array.isArray(raw?.terms) ? raw.terms : [];
+    const list = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.terms)
+            ? raw.terms
+            : [];
     const entries = [];
     for (const item of list) {
         const entry = item;
         const phrase = typeof entry.phrase === "string" ? entry.phrase : undefined;
-        const means = Array.isArray(entry.means) ? entry.means.filter((value) => typeof value === "string") : typeof entry.means === "string" ? [entry.means] : [];
+        const means = Array.isArray(entry.means)
+            ? entry.means.filter((value) => typeof value === "string")
+            : typeof entry.means === "string"
+                ? [entry.means]
+                : [];
         if (!phrase || !means.length) {
-            warnings.push({ path: rel, severity: "error", message: `entry needs 'phrase' and 'means': ${JSON.stringify(item).slice(0, 80)}` });
+            warnings.push({
+                path: rel,
+                severity: "error",
+                message: `entry needs 'phrase' and 'means': ${JSON.stringify(item).slice(0, 80)}`,
+            });
             continue;
         }
         entries.push({ phrase, means, note: typeof entry.note === "string" ? entry.note : undefined });
@@ -111,7 +137,9 @@ export function buildFromScan(scan, cache, previous, useCache) {
         files: scan.files.length,
         skipped: scan.skipped,
         glossaryPath: glossary.path,
-        contentHash: sha(scan.files.map((file) => `${file.path}:${file.hash}`).join("\n") + scan.configHash + glossary.hash),
+        contentHash: sha(scan.files.map((file) => `${file.path}:${file.hash}`).join("\n") +
+            scan.configHash +
+            glossary.hash),
     });
     return {
         kb,

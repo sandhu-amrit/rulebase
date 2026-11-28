@@ -5,7 +5,8 @@ import { test } from "node:test";
 import { anonymizeWorkspace } from "../src/anonymize.ts";
 import { ACME, MINILOAN, tempDir } from "./helpers.ts";
 
-const BUSINESS = /credit|income|borrower|miniloan|repayment|debt|acme|salary|eligib|validation|approved|messages/i;
+const BUSINESS =
+  /credit|income|borrower|miniloan|repayment|debt|acme|salary|eligib|validation|approved|messages/i;
 
 function allText(dir: string): { path: string; text: string }[] {
   const out: { path: string; text: string }[] = [];
@@ -20,7 +21,10 @@ function allText(dir: string): { path: string; text: string }[] {
   return out;
 }
 
-for (const [name, source] of [["miniloan", MINILOAN], ["acme", ACME]] as const) {
+for (const [name, source] of [
+  ["miniloan", MINILOAN],
+  ["acme", ACME],
+] as const) {
   test(`anonymized ${name} indexes exactly like the original`, () => {
     const out = path.join(tempDir(), "anon");
     const result = anonymizeWorkspace(source, out);
@@ -33,9 +37,16 @@ for (const [name, source] of [["miniloan", MINILOAN], ["acme", ACME]] as const) 
     anonymizeWorkspace(source, out);
     for (const file of allText(out)) {
       assert.doesNotMatch(file.path, BUSINESS, file.path);
-      const text = file.text.replace(/<uuid>[^<]*<\/uuid>/g, "").replace(/^uuid\s*=.*$/gm, "").replace(/property uuid "[^"]*"/g, "");
+      const text = file.text
+        .replace(/<uuid>[^<]*<\/uuid>/g, "")
+        .replace(/^uuid\s*=.*$/gm, "")
+        .replace(/property uuid "[^"]*"/g, "");
       const leak = BUSINESS.exec(text);
-      assert.equal(leak, null, `${file.path}: ...${leak ? text.slice(Math.max(0, leak.index - 30), leak.index + 30) : ""}...`);
+      assert.equal(
+        leak,
+        null,
+        `${file.path}: ...${leak ? text.slice(Math.max(0, leak.index - 30), leak.index + 30) : ""}...`,
+      );
     }
   });
 }

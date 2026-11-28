@@ -27,7 +27,10 @@ const BUILD_DIRS = new Set(["output", "bin", "target"]);
 
 /** A build folder is output/bin/target directly inside a rule project (next to its .ruleproject). */
 function isBuildDir(dir: string): boolean {
-  return BUILD_DIRS.has(path.basename(dir)) && fs.existsSync(path.join(path.dirname(dir), ".ruleproject"));
+  return (
+    BUILD_DIRS.has(path.basename(dir)) &&
+    fs.existsSync(path.join(path.dirname(dir), ".ruleproject"))
+  );
 }
 
 /** Whether a changed path (relative to the workspace) can affect the index. */
@@ -35,7 +38,8 @@ function ignoredChange(root: string, relative: string): boolean {
   if (IGNORED.test(relative)) return true;
   const parts = relative.split(/[\\/]/);
   for (let i = 0; i < parts.length - 1; i++) {
-    if (BUILD_DIRS.has(parts[i]) && isBuildDir(path.join(root, ...parts.slice(0, i + 1)))) return true;
+    if (BUILD_DIRS.has(parts[i]) && isBuildDir(path.join(root, ...parts.slice(0, i + 1))))
+      return true;
   }
   return false;
 }
@@ -133,7 +137,13 @@ export class Session {
     let result: BuildResult;
     try {
       result = full
-        ? buildWorkspace(this.root, { get: () => undefined, set: (key, value) => this.store.set(key, value) }, undefined, undefined, undefined)
+        ? buildWorkspace(
+            this.root,
+            { get: () => undefined, set: (key, value) => this.store.set(key, value) },
+            undefined,
+            undefined,
+            undefined,
+          )
         : buildWorkspace(this.root, this.store, this.parsed, this.fileStats, this.useCache);
     } catch (error) {
       // Keep the last good index, but stay dirty (retry next call) and label every answer as stale.
@@ -152,10 +162,16 @@ export class Session {
     // File contents are only needed for parsing; don't keep 5,000 file texts alive.
     for (const file of result.scan.files) delete file.content;
     this.result = result;
-    const files = result.scan.files.map((file) => ({ path: file.path, hash: file.hash, parseKey: cacheKey(file) }));
+    const files = result.scan.files.map((file) => ({
+      path: file.path,
+      hash: file.hash,
+      parseKey: cacheKey(file),
+    }));
     this.store.record(result.kb, files);
     const { stats } = result;
-    this.log(`indexed ${stats.files} files (${stats.parsed} parsed, ${stats.reused} reused) in ${stats.scanMs + stats.parseMs + stats.linkMs} ms`);
+    this.log(
+      `indexed ${stats.files} files (${stats.parsed} parsed, ${stats.reused} reused) in ${stats.scanMs + stats.parseMs + stats.linkMs} ms`,
+    );
     return result;
   }
 
@@ -169,8 +185,12 @@ export class Session {
     const kb = this.kb();
     if (this.driftCache?.hash === kb.meta.contentHash) return this.driftCache.report;
     const latest = this.store.latest();
-    const previous = latest && latest.contentHash === kb.meta.contentHash ? this.store.previous() : latest;
-    const report = drift(previous ? { summary: previous.summary, createdAt: previous.createdAt } : null, { summary: summarize(kb), createdAt: kb.meta.indexedAt });
+    const previous =
+      latest && latest.contentHash === kb.meta.contentHash ? this.store.previous() : latest;
+    const report = drift(
+      previous ? { summary: previous.summary, createdAt: previous.createdAt } : null,
+      { summary: summarize(kb), createdAt: kb.meta.indexedAt },
+    );
     this.driftCache = { hash: kb.meta.contentHash, report };
     return report;
   }

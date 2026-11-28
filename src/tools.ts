@@ -42,11 +42,15 @@ export const TOOLS: ToolDef[] = [
     description:
       "Browse the BOM. Without 'class': every class with its label, virtual flag and member count. With 'class' (fully qualified name, simple name or label): its members (including inherited ones) with type, virtual flag, what a virtual member is computed from, domain, documentation and verbalizations. Browsing is complete: a term that is not listed here does not exist.",
     input: {
-      class: z.string().optional().describe("Class to open, e.g. com.acme.loan.Borrower or 'borrower'"),
+      class: z
+        .string()
+        .optional()
+        .describe("Class to open, e.g. com.acme.loan.Borrower or 'borrower'"),
       offset: z.number().int().min(0).optional(),
       limit: z.number().int().min(1).max(1000).optional(),
     },
-    run: (session, args) => session.kb().listTerms(args as { class?: string; offset?: number; limit?: number }),
+    run: (session, args) =>
+      session.kb().listTerms(args as { class?: string; offset?: number; limit?: number }),
   },
   {
     name: "find_terms",
@@ -63,7 +67,7 @@ export const TOOLS: ToolDef[] = [
     name: "validate_phrases",
     title: "Validate BAL-like phrases",
     description:
-      "Strictly check phrases such as \"the credit score of the borrower is less than 600\" or \"reject the loan\". Every content word must be vocabulary, a BAL keyword, a literal or a ruleset variable. Reports unknown words with suggestions, unknown variables, and type errors (a member used on the wrong class, text compared with a number, a value of the wrong type).",
+      'Strictly check phrases such as "the credit score of the borrower is less than 600" or "reject the loan". Every content word must be vocabulary, a BAL keyword, a literal or a ruleset variable. Reports unknown words with suggestions, unknown variables, and type errors (a member used on the wrong class, text compared with a number, a value of the wrong type).',
     input: {
       phrases: z.array(z.string().min(1)).min(1).max(50),
     },
@@ -76,10 +80,16 @@ export const TOOLS: ToolDef[] = [
       "Given vocabulary terms (phrase texts like 'the credit score of the borrower', member ids like 'com.acme.Borrower.creditScore', or glossary phrases) and optionally the requirement text: returns 'modify' (rules and decision-table rows that use the terms, with reasons and how they run), 'add' (packages where a new rule would run, with the ruleflow tasks that select them and similar rules), and 'vocabularyGaps' (terms that do not exist: a BOM change is needed). Includes rules that use virtual members computed from the terms.",
     input: {
       terms: z.array(z.string().min(1)).min(1).max(30),
-      requirement: z.string().optional().describe("Original requirement text, used only to break ties"),
+      requirement: z
+        .string()
+        .optional()
+        .describe("Original requirement text, used only to break ties"),
       limit: z.number().int().min(1).max(100).optional(),
     },
-    run: (session, args) => session.kb().findChangeCandidates(args as { terms: string[]; requirement?: string; limit?: number }),
+    run: (session, args) =>
+      session
+        .kb()
+        .findChangeCandidates(args as { terms: string[]; requirement?: string; limit?: number }),
   },
   {
     name: "get_artifact",
@@ -98,7 +108,10 @@ export const TOOLS: ToolDef[] = [
     description:
       "Impact of changing a rule, package, ruleflow, BOM member or class, or vocabulary phrase. For a rule: the ruleflow tasks that select it (with filters and transition conditions), the operations that run them, rules in the same package, and rules that read what it sets. For a term: every rule, table column and ruleflow condition that uses it, including through virtual members computed from it and through subclasses.",
     input: {
-      target: z.string().min(1).describe("Artifact id/name, package name, member id, class fqn, or phrase text"),
+      target: z
+        .string()
+        .min(1)
+        .describe("Artifact id/name, package name, member id, class fqn, or phrase text"),
     },
     run: (session, args) => session.kb().getImpact(args as { target: string }),
   },
@@ -111,12 +124,14 @@ export const TOOLS: ToolDef[] = [
       ruleflow: z.string().optional().describe("Ruleflow name or id; omit to get every ruleflow"),
       task: z.string().optional().describe("Only this task"),
     },
-    run: (session, args) => session.kb().getRuleflowPaths(args as { ruleflow?: string; task?: string }),
+    run: (session, args) =>
+      session.kb().getRuleflowPaths(args as { ruleflow?: string; task?: string }),
   },
   {
     name: "get_operation_signature",
     title: "Decision operation signature",
-    description: "Inputs and outputs of the decision operations: parameter name, direction, BOM type, verbalization, and the ruleflow it runs.",
+    description:
+      "Inputs and outputs of the decision operations: parameter name, direction, BOM type, verbalization, and the ruleflow it runs.",
     input: {
       operation: z.string().optional(),
     },

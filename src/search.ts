@@ -77,7 +77,10 @@ export class SearchIndex {
     return out;
   }
 
-  search(query: string, options: { limit?: number; filter?: (key: string) => boolean } = {}): SearchResult[] {
+  search(
+    query: string,
+    options: { limit?: number; filter?: (key: string) => boolean } = {},
+  ): SearchResult[] {
     const tokens = [...new Set(searchTokens(query))];
     const scores = new Map<number, number>();
     const matched = new Map<number, { query: string; term: string }[]>();
@@ -89,7 +92,8 @@ export class SearchIndex {
         const idf = Math.log(1 + (n - posting.size + 0.5) / (posting.size + 0.5));
         for (const [doc, tf] of posting) {
           const length = this.lengths[doc];
-          const score = (penalty * idf * (tf * (K1 + 1))) / (tf + K1 * (1 - B + (B * length) / this.avgdl));
+          const score =
+            (penalty * idf * (tf * (K1 + 1))) / (tf + K1 * (1 - B + (B * length) / this.avgdl));
           scores.set(doc, (scores.get(doc) ?? 0) + score);
           const list = matched.get(doc) ?? [];
           if (!list.some((item) => item.query === token)) list.push({ query: token, term });

@@ -31,19 +31,145 @@ export type Token =
 
 /** Words that end a noun phrase inside a slot. */
 const BOUNDARY = new Set([
-  "is", "are", "not", "and", "or", "then", "else", "if", "to", "set", "make", "it", "that", "true", "false",
-  "less", "more", "greater", "than", "least", "most", "between", "equals", "equal", "does", "contains", "contain",
-  "starts", "ends", "with", "where", "from", "after", "before", "one", "print", "add", "remove", "in", "as",
-  "definitions", "when", "for", "each", "all", "any", "following", "conditions", "condition", "there", "no",
-  "number", "null", "times", "plus", "minus", "divided", "multiplied", "by", "has", "have", "be",
+  "is",
+  "are",
+  "not",
+  "and",
+  "or",
+  "then",
+  "else",
+  "if",
+  "to",
+  "set",
+  "make",
+  "it",
+  "that",
+  "true",
+  "false",
+  "less",
+  "more",
+  "greater",
+  "than",
+  "least",
+  "most",
+  "between",
+  "equals",
+  "equal",
+  "does",
+  "contains",
+  "contain",
+  "starts",
+  "ends",
+  "with",
+  "where",
+  "from",
+  "after",
+  "before",
+  "one",
+  "print",
+  "add",
+  "remove",
+  "in",
+  "as",
+  "definitions",
+  "when",
+  "for",
+  "each",
+  "all",
+  "any",
+  "following",
+  "conditions",
+  "condition",
+  "there",
+  "no",
+  "number",
+  "null",
+  "times",
+  "plus",
+  "minus",
+  "divided",
+  "multiplied",
+  "by",
+  "has",
+  "have",
+  "be",
   // French BAL
-  "est", "sont", "et", "ou", "alors", "si", "sinon", "que", "qui", "pas", "ne", "n", "moins", "egal", "egale",
-  "entre", "avec", "dans", "pour", "au", "aux", "superieur", "inferieur", "grand", "grande", "petit", "petite",
-  "contient", "commence", "termine", "par", "vrai", "faux", "nul", "nulle", "chaque", "tous", "toutes", "aucun",
-  "aucune", "assigner", "mettre", "ajouter", "retirer", "afficher", "rendre", "definir", "ou",
+  "est",
+  "sont",
+  "et",
+  "ou",
+  "alors",
+  "si",
+  "sinon",
+  "que",
+  "qui",
+  "pas",
+  "ne",
+  "n",
+  "moins",
+  "egal",
+  "egale",
+  "entre",
+  "avec",
+  "dans",
+  "pour",
+  "au",
+  "aux",
+  "superieur",
+  "inferieur",
+  "grand",
+  "grande",
+  "petit",
+  "petite",
+  "contient",
+  "commence",
+  "termine",
+  "par",
+  "vrai",
+  "faux",
+  "nul",
+  "nulle",
+  "chaque",
+  "tous",
+  "toutes",
+  "aucun",
+  "aucune",
+  "assigner",
+  "mettre",
+  "ajouter",
+  "retirer",
+  "afficher",
+  "rendre",
+  "definir",
+  "ou",
   // Portuguese and Spanish BAL
-  "e", "se", "entao", "senao", "nao", "maior", "menor", "igual", "verdadeiro", "falso", "nulo", "definir", "definicoes",
-  "es", "y", "entonces", "sino", "mayor", "igual", "verdadero", "falso", "nulo", "definiciones", "en", "em", "con", "com",
+  "e",
+  "se",
+  "entao",
+  "senao",
+  "nao",
+  "maior",
+  "menor",
+  "igual",
+  "verdadeiro",
+  "falso",
+  "nulo",
+  "definir",
+  "definicoes",
+  "es",
+  "y",
+  "entonces",
+  "sino",
+  "mayor",
+  "igual",
+  "verdadero",
+  "falso",
+  "nulo",
+  "definiciones",
+  "en",
+  "em",
+  "con",
+  "com",
 ]);
 
 const MAX_SLOT_TOKENS = 12;
@@ -51,18 +177,143 @@ const MAX_SLOT_TOKENS = 12;
 /** BAL keywords and operator words: allowed in a validated phrase without being vocabulary. */
 export const BAL_WORDS = new Set([
   ...BOUNDARY,
-  "of", "at", "least", "most", "same", "nothing", "empty", "unknown", "other", "otherwise", "this", "these",
-  "those", "their", "its", "which", "who", "whose", "variable", "value", "values", "date", "time", "today",
-  "now", "year", "years", "month", "months", "day", "days", "week", "weeks", "hour", "hours", "minute", "minutes",
-  "percent", "sum", "average", "minimum", "maximum", "count", "list", "collection", "elements", "element",
-  "first", "last", "size", "new", "true", "false", "yes", "no", "also", "only", "every", "exists", "exist",
-  "below", "above", "under", "over", "within", "outside", "inclusive", "exclusive", "higher", "lower",
-  "greater", "fewer", "smaller", "bigger", "larger", "up", "down", "into", "on", "by", "per", "an", "a", "the",
-  "do", "did", "done", "should", "must", "will", "would", "can", "could", "being", "been", "was", "were",
+  "of",
+  "at",
+  "least",
+  "most",
+  "same",
+  "nothing",
+  "empty",
+  "unknown",
+  "other",
+  "otherwise",
+  "this",
+  "these",
+  "those",
+  "their",
+  "its",
+  "which",
+  "who",
+  "whose",
+  "variable",
+  "value",
+  "values",
+  "date",
+  "time",
+  "today",
+  "now",
+  "year",
+  "years",
+  "month",
+  "months",
+  "day",
+  "days",
+  "week",
+  "weeks",
+  "hour",
+  "hours",
+  "minute",
+  "minutes",
+  "percent",
+  "sum",
+  "average",
+  "minimum",
+  "maximum",
+  "count",
+  "list",
+  "collection",
+  "elements",
+  "element",
+  "first",
+  "last",
+  "size",
+  "new",
+  "true",
+  "false",
+  "yes",
+  "no",
+  "also",
+  "only",
+  "every",
+  "exists",
+  "exist",
+  "below",
+  "above",
+  "under",
+  "over",
+  "within",
+  "outside",
+  "inclusive",
+  "exclusive",
+  "higher",
+  "lower",
+  "greater",
+  "fewer",
+  "smaller",
+  "bigger",
+  "larger",
+  "up",
+  "down",
+  "into",
+  "on",
+  "by",
+  "per",
+  "an",
+  "a",
+  "the",
+  "do",
+  "did",
+  "done",
+  "should",
+  "must",
+  "will",
+  "would",
+  "can",
+  "could",
+  "being",
+  "been",
+  "was",
+  "were",
   // French BAL keywords and operator words
-  "definitions", "il", "elle", "ce", "cette", "ces", "y", "a", "plus", "egaux", "different", "differente", "jour", "jours",
-  "mois", "an", "ans", "annee", "annees", "heure", "heures", "nombre", "somme", "moyenne", "minimum", "maximum", "vide",
-  "dernier", "derniere", "premier", "premiere", "suivant", "suivante", "selon", "sans", "sur", "sous", "apres", "avant",
+  "definitions",
+  "il",
+  "elle",
+  "ce",
+  "cette",
+  "ces",
+  "y",
+  "a",
+  "plus",
+  "egaux",
+  "different",
+  "differente",
+  "jour",
+  "jours",
+  "mois",
+  "an",
+  "ans",
+  "annee",
+  "annees",
+  "heure",
+  "heures",
+  "nombre",
+  "somme",
+  "moyenne",
+  "minimum",
+  "maximum",
+  "vide",
+  "dernier",
+  "derniere",
+  "premier",
+  "premiere",
+  "suivant",
+  "suivante",
+  "selon",
+  "sans",
+  "sur",
+  "sous",
+  "apres",
+  "avant",
 ]);
 
 /**
@@ -70,23 +321,38 @@ export const BAL_WORDS = new Set([
  * open a quoted variable. It is replaced by a space (same length, so offsets are unchanged).
  */
 function unelide(text: string): string {
-  return text.replace(/(^|[^A-Za-z\u00C0-\u024F'])([lLdDnNsScCjJmMtT]|[qQ]u)'(?=[A-Za-z\u00C0-\u024F])/g, (_, before: string, letters: string) => `${before}${letters} `);
+  return text.replace(
+    /(^|[^A-Za-z\u00C0-\u024F'])([lLdDnNsScCjJmMtT]|[qQ]u)'(?=[A-Za-z\u00C0-\u024F])/g,
+    (_, before: string, letters: string) => `${before}${letters} `,
+  );
 }
 
 export function tokenizeBal(text: string): Token[] {
   text = unelide(text);
   const tokens: Token[] = [];
-  const re = /'([^'\n]*)'|"((?:[^"\\]|\\.)*)"|(<[^<>\n]+>)|(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?%?|-?\d+(?:\.\d+)?%?)|([A-Za-zÀ-ɏ][\wÀ-ɏ-]*)|(<=|>=|!=|==|[*/+\-<>=%])|([;,.:()])/g;
+  const re =
+    /'([^'\n]*)'|"((?:[^"\\]|\\.)*)"|(<[^<>\n]+>)|(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?%?|-?\d+(?:\.\d+)?%?)|([A-Za-zÀ-ɏ][\wÀ-ɏ-]*)|(<=|>=|!=|==|[*/+\-<>=%])|([;,.:()])/g;
   let match: RegExpExecArray | null;
   while ((match = re.exec(text))) {
     const at = match.index;
     const end = at + match[0].length;
     if (match[1] !== undefined) {
-      tokens.push({ kind: "var", value: stripArticles(normalize(match[1])), raw: match[1], at, end });
+      tokens.push({
+        kind: "var",
+        value: stripArticles(normalize(match[1])),
+        raw: match[1],
+        at,
+        end,
+      });
     } else if (match[2] !== undefined) {
       tokens.push({ kind: "string", value: match[2], at, end });
     } else if (match[3] !== undefined) {
-      tokens.push({ kind: "placeholder", value: match[3].slice(1, -1).trim().toLowerCase(), at, end });
+      tokens.push({
+        kind: "placeholder",
+        value: match[3].slice(1, -1).trim().toLowerCase(),
+        at,
+        end,
+      });
     } else if (match[4] !== undefined) {
       tokens.push({ kind: "number", value: match[4], at, end });
     } else if (match[5] !== undefined) {
@@ -115,7 +381,10 @@ export type PatternItem = { lit: string } | { slot: number };
  * the value placeholder of an attribute's setter action, which the caller marks
  * via `valueTerm`.
  */
-export function compilePattern(template: string, valueTerm?: string): { items: PatternItem[]; slotNames: string[] } {
+export function compilePattern(
+  template: string,
+  valueTerm?: string,
+): { items: PatternItem[]; slotNames: string[] } {
   const items: PatternItem[] = [];
   const slotNames: string[] = [];
   const re = /\{([^}]*)\}|([^{]+)/g;
@@ -138,7 +407,10 @@ export function compilePattern(template: string, valueTerm?: string): { items: P
     }
   }
   parts.forEach((part, index) => {
-    if (part.brace && (part.text === "this" || /^\d+$/.test(part.text) || (index === valueIndex && !valueUsed))) {
+    if (
+      part.brace &&
+      (part.text === "this" || /^\d+$/.test(part.text) || (index === valueIndex && !valueUsed))
+    ) {
       if (index === valueIndex) valueUsed = true;
       items.push({ slot: slotNames.length });
       slotNames.push(part.text);
@@ -218,7 +490,8 @@ export class PhraseMatcher {
       const token = tokens[i];
       if (token.kind !== "word") continue;
       const next = tokens[i + 1];
-      const pair = next?.kind === "word" ? this.byPair.get(`${token.value} ${next.value}`) : undefined;
+      const pair =
+        next?.kind === "word" ? this.byPair.get(`${token.value} ${next.value}`) : undefined;
       for (const candidates of [this.byWord.get(token.value), pair]) {
         if (!candidates) continue;
         for (const compiled of candidates) {
@@ -230,7 +503,13 @@ export class PhraseMatcher {
     return disambiguate(raw);
   }
 
-  private tryAt(tokens: Token[], at: number, compiled: CompiledPhrase, env: TypeEnv, depth: number): PhraseMatch | null {
+  private tryAt(
+    tokens: Token[],
+    at: number,
+    compiled: CompiledPhrase,
+    env: TypeEnv,
+    depth: number,
+  ): PhraseMatch | null {
     const { items, anchor } = compiled;
     const literals: number[] = [];
     const slots: SlotMatch[] = [];
@@ -239,7 +518,8 @@ export class PhraseMatcher {
     if (anchor > 0) {
       if (anchor > 1 || !("slot" in items[0])) return null;
       // `'the customer'.isOlderThan(30)`: a dot may sit between the subject and the phrase.
-      const before = tokens[at - 1]?.kind === "punct" && tokens[at - 1].value === "." ? at - 2 : at - 1;
+      const before =
+        tokens[at - 1]?.kind === "punct" && tokens[at - 1].value === "." ? at - 2 : at - 1;
       const slot = backwardNounPhrase(tokens, before);
       if (!slot) return null;
       slots[(items[0] as { slot: number }).slot] = slot;
@@ -297,13 +577,27 @@ export class PhraseMatcher {
 function spanText(tokens: Token[], from: number, to: number): string {
   return tokens
     .slice(from, to)
-    .map((token) => (token.kind === "var" ? `'${token.raw}'` : token.kind === "string" ? `"${token.value}"` : token.kind === "placeholder" ? `<${token.value}>` : token.value))
+    .map((token) =>
+      token.kind === "var"
+        ? `'${token.raw}'`
+        : token.kind === "string"
+          ? `"${token.value}"`
+          : token.kind === "placeholder"
+            ? `<${token.value}>`
+            : token.value,
+    )
     .join(" ");
 }
 
 function isNounToken(token: Token | undefined): boolean {
   if (!token) return false;
-  if (token.kind === "var" || token.kind === "placeholder" || token.kind === "string" || token.kind === "number") return true;
+  if (
+    token.kind === "var" ||
+    token.kind === "placeholder" ||
+    token.kind === "string" ||
+    token.kind === "number"
+  )
+    return true;
   return token.kind === "word" && !BOUNDARY.has(token.value);
 }
 
@@ -311,7 +605,8 @@ function isNounToken(token: Token | undefined): boolean {
 function forwardNounPhrase(tokens: Token[], pos: number, wordsOnly = false): SlotMatch | null {
   const first = tokens[pos];
   if (!isNounToken(first)) return null;
-  if (first.kind !== "word") return { from: pos, to: pos + 1, text: spanText(tokens, pos, pos + 1) };
+  if (first.kind !== "word")
+    return { from: pos, to: pos + 1, text: spanText(tokens, pos, pos + 1) };
   let end = pos;
   while (end < tokens.length && end - pos < MAX_SLOT_TOKENS) {
     const token = tokens[end];
@@ -340,23 +635,51 @@ function backwardNounPhrase(tokens: Token[], pos: number): SlotMatch | null {
     }
   } else {
     // 'x' of 'y' chains: "the borrower of 'the loan' is approved" -> take back through `of` words
-    while (start - 2 >= 0 && tokens[start - 1].kind === "word" && (tokens[start - 1] as { value: string }).value === "of") {
+    while (
+      start - 2 >= 0 &&
+      tokens[start - 1].kind === "word" &&
+      (tokens[start - 1] as { value: string }).value === "of"
+    ) {
       const before = tokens[start - 2];
       if (before.kind !== "word" || BOUNDARY.has(before.value)) break;
       start -= 2;
-      while (start - 1 >= 0 && tokens[start - 1].kind === "word" && !BOUNDARY.has((tokens[start - 1] as { value: string }).value) && (tokens[start - 1] as { value: string }).value !== "of") start--;
+      while (
+        start - 1 >= 0 &&
+        tokens[start - 1].kind === "word" &&
+        !BOUNDARY.has((tokens[start - 1] as { value: string }).value) &&
+        (tokens[start - 1] as { value: string }).value !== "of"
+      )
+        start--;
     }
   }
   return { from: start, to: pos + 1, text: spanText(tokens, start, pos + 1) };
 }
 
-function typeSlot(slot: SlotMatch, tokens: Token[], env: TypeEnv, matcher: PhraseMatcher, depth: number): void {
+function typeSlot(
+  slot: SlotMatch,
+  tokens: Token[],
+  env: TypeEnv,
+  matcher: PhraseMatcher,
+  depth: number,
+): void {
   let span = tokens.slice(slot.from, slot.to);
   // `in 'the loan report', reject ...`: punctuation at the edges of a slot is not part of its value.
-  while (span.length > 1 && span[span.length - 1].kind === "punct" && [",", ";", ":"].includes(span[span.length - 1].value)) span = span.slice(0, -1);
-  while (span.length > 1 && span[0].kind === "punct" && [",", ":"].includes(span[0].value)) span = span.slice(1);
+  while (
+    span.length > 1 &&
+    span[span.length - 1].kind === "punct" &&
+    [",", ";", ":"].includes(span[span.length - 1].value)
+  )
+    span = span.slice(0, -1);
+  while (span.length > 1 && span[0].kind === "punct" && [",", ":"].includes(span[0].value))
+    span = span.slice(1);
   // `(the location of 'the merchant')`: brackets around an argument don't change its type.
-  while (span.length > 2 && span[0].kind === "punct" && span[0].value === "(" && span[span.length - 1].kind === "punct" && span[span.length - 1].value === ")") {
+  while (
+    span.length > 2 &&
+    span[0].kind === "punct" &&
+    span[0].value === "(" &&
+    span[span.length - 1].kind === "punct" &&
+    span[span.length - 1].value === ")"
+  ) {
     span = span.slice(1, -1);
   }
   if (span.length === 1) {
@@ -380,10 +703,14 @@ function typeSlot(slot: SlotMatch, tokens: Token[], env: TypeEnv, matcher: Phras
       return;
     }
   }
-  const words = span.filter((token) => token.kind === "word").map((token) => (token as { value: string }).value);
+  const words = span
+    .filter((token) => token.kind === "word")
+    .map((token) => (token as { value: string }).value);
   if (words.length === span.length) {
     // `this ilr project element`, `each item`, `cet élément`, `este pedido`: a demonstrative in front of a concept label
-    const label = words.join(" ").replace(/^(this|each|that|every|ce|cet|cette|ces|chaque|este|esta|esse|essa|cada) /, "");
+    const label = words
+      .join(" ")
+      .replace(/^(this|each|that|every|ce|cet|cette|ces|chaque|este|esta|esse|essa|cada) /, "");
     const concept = env.concepts.get(label);
     if (concept) {
       slot.type = concept;
@@ -400,7 +727,9 @@ function typeSlot(slot: SlotMatch, tokens: Token[], env: TypeEnv, matcher: Phras
   if (depth < 3) {
     // A nested navigation that covers the whole slot gives the slot its type.
     const inner = matcher.match(span, env, depth + 1);
-    const whole = inner.find((m) => m.from === 0 && m.to === span.length && m.compiled.phrase.kind === "navigation");
+    const whole = inner.find(
+      (m) => m.from === 0 && m.to === span.length && m.compiled.phrase.kind === "navigation",
+    );
     if (whole?.compiled.phrase.type) {
       slot.type = whole.compiled.phrase.type;
       slot.typedBy = "navigation";

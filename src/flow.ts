@@ -59,7 +59,9 @@ export function analyzeFlow(flow: Artifact): FlowAnalysis {
     bySource.set(transition.source, [...(bySource.get(transition.source) ?? []), transition]);
   }
   for (const [source, list] of bySource) {
-    const conditioned = list.filter((item) => item.condition).map((item) => (item.condition as string).replace(/\s+/g, " ").trim());
+    const conditioned = list
+      .filter((item) => item.condition)
+      .map((item) => (item.condition as string).replace(/\s+/g, " ").trim());
     for (const transition of list) {
       let guard: string | undefined;
       if (kindOf.get(source) !== "fork") {
@@ -72,7 +74,9 @@ export function analyzeFlow(flow: Artifact): FlowAnalysis {
   }
 
   const declaredStarts = tasks.filter((task) => task.kind === "start").map((task) => task.id);
-  const starts = declaredStarts.length ? declaredStarts : [...ids].filter((id) => !(inn.get(id) ?? []).length);
+  const starts = declaredStarts.length
+    ? declaredStarts
+    : [...ids].filter((id) => !(inn.get(id) ?? []).length);
   const stops = tasks.filter((task) => task.kind === "stop").map((task) => task.id);
 
   // Paths with their guards (depth-first, no task twice on one path).
@@ -120,7 +124,10 @@ export function analyzeFlow(flow: Artifact): FlowAnalysis {
   const reachable = new Set(paths.keys());
   const indegree = new Map<string, number>();
   for (const id of reachable) indegree.set(id, 0);
-  for (const id of reachable) for (const edge of out.get(id) ?? []) if (!backEdge.has(`${id}->${edge.target}`) && reachable.has(edge.target)) indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
+  for (const id of reachable)
+    for (const edge of out.get(id) ?? [])
+      if (!backEdge.has(`${id}->${edge.target}`) && reachable.has(edge.target))
+        indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
   const queue = [...reachable].filter((id) => (indegree.get(id) ?? 0) === 0);
   for (const id of queue) order.set(id, 0);
   while (queue.length) {
@@ -142,7 +149,9 @@ export function analyzeFlow(flow: Artifact): FlowAnalysis {
       seen.add(id);
       stack.push(...next(id));
     }
-    return [...seen].sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0) || a.localeCompare(b));
+    return [...seen].sort(
+      (a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0) || a.localeCompare(b),
+    );
   };
 
   const result = new Map<string, TaskAnalysis>();
@@ -177,7 +186,7 @@ export function analyzeFlow(flow: Artifact): FlowAnalysis {
  */
 function simplify(input: string[][]): string[][] {
   let list = input.map((path) => [...path]);
-  for (let changed = true; changed; ) {
+  for (let changed = true; changed;) {
     changed = false;
     const groups = new Map<string, string[][]>();
     for (const path of list) {
@@ -194,7 +203,14 @@ function simplify(input: string[][]): string[][] {
         if (!siblings.every((condition) => lasts.has(condition))) continue;
         const prefix = key ? key.split("\u0001") : [];
         const covered = new Set([last, ...siblings]);
-        list = list.filter((path) => !(path.length === prefix.length + 1 && path.slice(0, -1).join("\u0001") === key && covered.has(path[path.length - 1])));
+        list = list.filter(
+          (path) =>
+            !(
+              path.length === prefix.length + 1 &&
+              path.slice(0, -1).join("\u0001") === key &&
+              covered.has(path[path.length - 1])
+            ),
+        );
         list.push(prefix);
         changed = true;
         break;
@@ -225,16 +241,27 @@ export function describeTaskSettings(task: FlowTask): string[] {
   const notes: string[] = [];
   const algorithm = (task.algorithm ?? "").toLowerCase();
   if (algorithm === "reteplus" || algorithm === "default") {
-    notes.push("RetePlus: inference. An action that changes data can make other rules in this task eligible again; rule priority decides the order.");
+    notes.push(
+      "RetePlus: inference. An action that changes data can make other rules in this task eligible again; rule priority decides the order.",
+    );
   } else if (algorithm === "fastpath") {
-    notes.push("Fastpath: rules are matched once against the data; changes made by actions do not re-trigger rules in this task.");
+    notes.push(
+      "Fastpath: rules are matched once against the data; changes made by actions do not re-trigger rules in this task.",
+    );
   } else if (algorithm === "sequential") {
-    notes.push("Sequential: each rule is tried once, in order; changes made by actions do not re-trigger rules.");
+    notes.push(
+      "Sequential: each rule is tried once, in order; changes made by actions do not re-trigger rules.",
+    );
   }
   const exit = (task.exitCriteria ?? "").toLowerCase();
   if (exit === "rule" || exit === "ruleinstance") {
-    notes.push(`Exit criteria ${task.exitCriteria}: the task stops after the first rule (or rule instance) fires, so the order of rules matters.`);
+    notes.push(
+      `Exit criteria ${task.exitCriteria}: the task stops after the first rule (or rule instance) fires, so the order of rules matters.`,
+    );
   }
-  if (task.filter) notes.push(`Runtime selection filter: ${task.filter}. Which rules run is decided at run time; Rulebase lists every rule of the selected packages.`);
+  if (task.filter)
+    notes.push(
+      `Runtime selection filter: ${task.filter}. Which rules run is decided at run time; Rulebase lists every rule of the selected packages.`,
+    );
   return notes;
 }

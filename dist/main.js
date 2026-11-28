@@ -69,7 +69,9 @@ export async function main(argv) {
             for (const row of result.comparison) {
                 console.log(`  ${row.original === row.anonymized ? "same" : "DIFF"}  ${row.metric.padEnd(18)} ${String(row.original).padStart(7)} ${String(row.anonymized).padStart(7)}`);
             }
-            console.log(result.ok ? "The anonymized copy indexes the same way. Review it before sharing: comments and free text are replaced word by word, not removed." : "The copies differ: the anonymizer changed meaning somewhere. Please report the DIFF lines (they contain no business data).");
+            console.log(result.ok
+                ? "The anonymized copy indexes the same way. Review it before sharing: comments and free text are replaced word by word, not removed."
+                : "The copies differ: the anonymizer changed meaning somewhere. Please report the DIFF lines (they contain no business data).");
             return result.ok ? 0 : 1;
         }
         catch (error) {
@@ -118,7 +120,10 @@ function index(session, full) {
     const overview = kb.listDecisionServices();
     console.log(`${kb.meta.decisionService}: ${kb.meta.projects.length} project(s), ${stats.files} files`);
     console.log(`  parsed ${stats.parsed}, reused ${stats.reused}; scan ${stats.scanMs} ms, parse ${stats.parseMs} ms, link ${stats.linkMs} ms`);
-    console.log(`  ${Object.entries(overview.counts).filter(([, value]) => value).map(([key, value]) => `${key} ${value}`).join(", ")}`);
+    console.log(`  ${Object.entries(overview.counts)
+        .filter(([, value]) => value)
+        .map(([key, value]) => `${key} ${value}`)
+        .join(", ")}`);
     const errors = kb.warnings().filter((warning) => warning.severity === "error");
     if (errors.length) {
         console.log(`  ${errors.length} error(s):`);

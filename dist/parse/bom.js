@@ -1,5 +1,27 @@
-const CLASS_MODIFIERS = new Set(["public", "protected", "private", "abstract", "final", "static", "strictfp"]);
-const MEMBER_MODIFIERS = new Set(["public", "protected", "private", "static", "final", "readonly", "writeonly", "abstract", "native", "synchronized", "transient", "volatile", "deprecated"]);
+const CLASS_MODIFIERS = new Set([
+    "public",
+    "protected",
+    "private",
+    "abstract",
+    "final",
+    "static",
+    "strictfp",
+]);
+const MEMBER_MODIFIERS = new Set([
+    "public",
+    "protected",
+    "private",
+    "static",
+    "final",
+    "readonly",
+    "writeonly",
+    "abstract",
+    "native",
+    "synchronized",
+    "transient",
+    "volatile",
+    "deprecated",
+]);
 export function parseBom(content, provenance, bomEntry) {
     const warnings = [];
     const statements = scan(stripComments(content), provenance.path, warnings);
@@ -11,11 +33,21 @@ export function parseBom(content, provenance, bomEntry) {
         const text = statement.text.trim();
         const parsed = parseClassHeader(text, scope);
         if (!parsed) {
-            warnings.push({ path: provenance.path, severity: "error", message: `line ${statement.line}: could not read class header '${text.slice(0, 80)}'` });
+            warnings.push({
+                path: provenance.path,
+                severity: "error",
+                message: `line ${statement.line}: could not read class header '${text.slice(0, 80)}'`,
+            });
             return;
         }
         // A nested class keeps its outer class in its name (a.b.Outer.Inner) and the outer's package.
-        const klass = { ...parsed, ...(outer ? { packageName: outer.packageName } : {}), virtual: false, provenance: { ...provenance }, bomEntry };
+        const klass = {
+            ...parsed,
+            ...(outer ? { packageName: outer.packageName } : {}),
+            virtual: false,
+            provenance: { ...provenance },
+            bomEntry,
+        };
         klass.documentation = documentationOf(klass.properties);
         classes.push(klass);
         for (const memberStatement of statement.body ?? []) {
@@ -28,7 +60,11 @@ export function parseBom(content, provenance, bomEntry) {
             }
             const member = parseMember(memberText, klass);
             if (!member) {
-                warnings.push({ path: provenance.path, severity: "error", message: `line ${memberStatement.line}: could not read member of ${klass.fqn}: '${memberText.slice(0, 80)}'` });
+                warnings.push({
+                    path: provenance.path,
+                    severity: "error",
+                    message: `line ${memberStatement.line}: could not read member of ${klass.fqn}: '${memberText.slice(0, 80)}'`,
+                });
                 continue;
             }
             if (typeof member === "object" && "domainOnly" in member) {
@@ -151,7 +187,9 @@ function scanBlock(content, st, path, warnings, topLevel) {
         if (ch === "\n") {
             st.line++;
             // Top-level `property ...` and `#flag` lines end at the newline (they have no `;`).
-            if (topLevel && /^\s*(property\s|#[\w.$]+\s*$)/.test(buffer) && !/\b(class|interface)\b/.test(buffer)) {
+            if (topLevel &&
+                /^\s*(property\s|#[\w.$]+\s*$)/.test(buffer) &&
+                !/\b(class|interface)\b/.test(buffer)) {
                 flush();
                 st.i++;
                 continue;
@@ -201,7 +239,11 @@ function scanBlock(content, st, path, warnings, topLevel) {
         st.i++;
     }
     if (!topLevel)
-        warnings.push({ path, severity: "error", message: `class body near line ${bufferLine} is not closed` });
+        warnings.push({
+            path,
+            severity: "error",
+            message: `class body near line ${bufferLine} is not closed`,
+        });
     flush();
     return out;
 }
@@ -256,7 +298,9 @@ function collapse(text) {
 }
 function unquote(value) {
     if (value.startsWith('"') && value.endsWith('"')) {
-        return value.slice(1, -1).replace(/\\(.)/g, (_, c) => (c === "n" ? "\n" : c === "t" ? "\t" : c));
+        return value
+            .slice(1, -1)
+            .replace(/\\(.)/g, (_, c) => (c === "n" ? "\n" : c === "t" ? "\t" : c));
     }
     return value;
 }
@@ -362,7 +406,9 @@ function parseMember(text, klass) {
         type = words[1];
         name = "operator";
     }
-    else if (params !== null && words.length === 1 && (words[0] === klass.name || words[0] === klass.fqn)) {
+    else if (params !== null &&
+        words.length === 1 &&
+        (words[0] === klass.name || words[0] === klass.fqn)) {
         kind = "constructor";
         type = klass.fqn;
         name = klass.name;
@@ -383,7 +429,11 @@ function parseMember(text, klass) {
     if (parsedParams === null)
         return null;
     const signature = parsedParams.map((item) => item.type).join(",");
-    const id = kind === "attribute" ? `${klass.fqn}.${name}` : name === "operator" ? `${klass.fqn}.operator ${type}(${signature})` : `${klass.fqn}.${name}(${signature})`;
+    const id = kind === "attribute"
+        ? `${klass.fqn}.${name}`
+        : name === "operator"
+            ? `${klass.fqn}.operator ${type}(${signature})`
+            : `${klass.fqn}.${name}(${signature})`;
     return {
         id,
         owner: klass.fqn,

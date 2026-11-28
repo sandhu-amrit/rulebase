@@ -30,7 +30,12 @@ export async function serveMcp(workspace, options = {}) {
             catch (error) {
                 log(`${tool.name} failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
                 return {
-                    content: [{ type: "text", text: `rulebase could not answer: ${error instanceof Error ? error.message : String(error)}` }],
+                    content: [
+                        {
+                            type: "text",
+                            text: `rulebase could not answer: ${error instanceof Error ? error.message : String(error)}`,
+                        },
+                    ],
                     isError: true,
                 };
             }

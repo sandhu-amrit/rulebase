@@ -15,5 +15,11 @@ gc?.();
 await new Promise((resolve) => setTimeout(resolve, 100));
 gc?.();
 const usage = process.memoryUsage();
-console.log(JSON.stringify({ startMs: ms, rssMb: Math.round(usage.rss / 1048576), heapMb: Math.round(usage.heapUsed / 1048576) }));
+console.log(
+  JSON.stringify({
+    startMs: ms,
+    rssMb: Math.round(usage.rss / 1048576),
+    heapMb: Math.round(usage.heapUsed / 1048576),
+  }),
+);
 session.close();

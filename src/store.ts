@@ -60,7 +60,10 @@ export interface StoredSnapshot {
 export function cacheDir(): string {
   if (process.env.RULEBASE_CACHE_DIR) return process.env.RULEBASE_CACHE_DIR;
   if (process.platform === "win32") {
-    return path.join(process.env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local"), "rulebase");
+    return path.join(
+      process.env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local"),
+      "rulebase",
+    );
   }
   return path.join(process.env.XDG_CACHE_HOME ?? path.join(os.homedir(), ".cache"), "rulebase");
 }
@@ -86,17 +89,24 @@ export class Store implements ParseCache {
     const version = this.versionOf();
     if (version !== null && version !== SCHEMA_VERSION) {
       // A cache from another version is not migrated: it is rebuilt.
-      this.db.exec("DROP TABLE IF EXISTS parsed; DROP TABLE IF EXISTS snapshots; DROP TABLE IF EXISTS snapshot_files; DROP TABLE IF EXISTS meta;");
+      this.db.exec(
+        "DROP TABLE IF EXISTS parsed; DROP TABLE IF EXISTS snapshots; DROP TABLE IF EXISTS snapshot_files; DROP TABLE IF EXISTS meta;",
+      );
     }
     this.db.exec(SCHEMA);
-    this.db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema', ?)").run(String(SCHEMA_VERSION));
+    this.db
+      .prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema', ?)")
+      .run(String(SCHEMA_VERSION));
     this.getStmt = this.db.prepare("SELECT body FROM parsed WHERE key = ?");
-    this.setStmt = this.db.prepare("INSERT OR REPLACE INTO parsed (key, path, body) VALUES (?, ?, ?)");
+    this.setStmt = this.db.prepare(
+      "INSERT OR REPLACE INTO parsed (key, path, body) VALUES (?, ?, ?)",
+    );
   }
 
   private versionOf(): number | null {
     try {
-      const row = this.db.prepare("SELECT value FROM meta WHERE key = 'schema'").get() as { value: string } | undefined;
+      const row = this.db.prepare("SELECT value FROM meta WHERE key = 'schema'").get() as
+        { value: string } | undefined;
       return row ? Number(row.value) : null;
     } catch {
       return null;
@@ -123,7 +133,8 @@ export class Store implements ParseCache {
   }
 
   private writePending(): void {
-    for (const [key, value] of this.pending) this.setStmt.run(key, value.path, JSON.stringify(value));
+    for (const [key, value] of this.pending)
+      this.setStmt.run(key, value.path, JSON.stringify(value));
     this.pending.clear();
   }
 
@@ -150,7 +161,13 @@ export class Store implements ParseCache {
 
   private snapshot(sql: string): StoredSnapshot | null {
     const row = this.db.prepare(sql).get() as
-      | { id: number; created_at: string; content_hash: string; decision_service: string; summary: string }
+      | {
+          id: number;
+          created_at: string;
+          content_hash: string;
+          decision_service: string;
+          summary: string;
+        }
       | undefined;
     if (!row) return null;
     return {
@@ -167,7 +184,9 @@ export class Store implements ParseCache {
     const latest = this.latest();
     if (!latest) return [];
     const rows = this.db
-      .prepare("SELECT p.body FROM snapshot_files f JOIN parsed p ON p.key = f.parse_key WHERE f.snapshot_id = ? ORDER BY f.path")
+      .prepare(
+        "SELECT p.body FROM snapshot_files f JOIN parsed p ON p.key = f.parse_key WHERE f.snapshot_id = ? ORDER BY f.path",
+      )
       .all(latest.id) as { body: string }[];
     return rows.map((row) => JSON.parse(row.body) as ParsedFile);
   }
@@ -176,7 +195,10 @@ export class Store implements ParseCache {
    * Record an index. An identical index (same content hash as the latest) is not
    * stored again. Keeps the latest two snapshots and prunes unreferenced parses.
    */
-  record(kb: KnowledgeBase, files: { path: string; hash: string; parseKey: string }[]): { stored: boolean; id: number } {
+  record(
+    kb: KnowledgeBase,
+    files: { path: string; hash: string; parseKey: string }[],
+  ): { stored: boolean; id: number } {
     const latest = this.latest();
     if (latest && latest.contentHash === kb.meta.contentHash) {
       this.flush();
@@ -185,12 +207,23 @@ export class Store implements ParseCache {
     return this.transaction(() => {
       this.writePending();
       const inserted = this.db
-        .prepare("INSERT INTO snapshots (created_at, content_hash, decision_service, summary) VALUES (?, ?, ?, ?)")
-        .run(kb.meta.indexedAt, kb.meta.contentHash, kb.meta.decisionService, JSON.stringify(summarize(kb)));
+        .prepare(
+          "INSERT INTO snapshots (created_at, content_hash, decision_service, summary) VALUES (?, ?, ?, ?)",
+        )
+        .run(
+          kb.meta.indexedAt,
+          kb.meta.contentHash,
+          kb.meta.decisionService,
+          JSON.stringify(summarize(kb)),
+        );
       const id = Number(inserted.lastInsertRowid);
-      const fileStmt = this.db.prepare("INSERT INTO snapshot_files (snapshot_id, path, hash, parse_key) VALUES (?, ?, ?, ?)");
+      const fileStmt = this.db.prepare(
+        "INSERT INTO snapshot_files (snapshot_id, path, hash, parse_key) VALUES (?, ?, ?, ?)",
+      );
       for (const file of files) fileStmt.run(id, file.path, file.hash, file.parseKey);
-      const keep = this.db.prepare("SELECT id FROM snapshots ORDER BY id DESC LIMIT 2").all() as { id: number }[];
+      const keep = this.db.prepare("SELECT id FROM snapshots ORDER BY id DESC LIMIT 2").all() as {
+        id: number;
+      }[];
       const ids = keep.map((row) => row.id).join(",");
       this.db.exec(`DELETE FROM snapshot_files WHERE snapshot_id NOT IN (${ids})`);
       this.db.exec(`DELETE FROM snapshots WHERE id NOT IN (${ids})`);
@@ -220,9 +253,17 @@ export function summarize(kb: KnowledgeBase): SnapshotSummary {
   return {
     artifacts: [...kb.model.artifacts.values()]
       .filter((item) => item.type !== "package")
-      .map((item) => ({ id: item.id, name: item.name, type: item.type, path: item.provenance.path, fingerprint: fingerprint(item) }))
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        type: item.type,
+        path: item.provenance.path,
+        fingerprint: fingerprint(item),
+      }))
       .sort((a, b) => a.id.localeCompare(b.id)),
-    phrases: [...kb.model.phrases.values()].map((phrase) => ({ id: phrase.id, text: phrase.text })).sort((a, b) => a.id.localeCompare(b.id)),
+    phrases: [...kb.model.phrases.values()]
+      .map((phrase) => ({ id: phrase.id, text: phrase.text }))
+      .sort((a, b) => a.id.localeCompare(b.id)),
     members: [...kb.model.members.keys()].sort(),
     ...(kb.meta.branch ? { branch: kb.meta.branch } : {}),
   };

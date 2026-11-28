@@ -1,6 +1,6 @@
 # Instructions for working on Rulebase
 
-*For changing Rulebase's own code, in this repository. Copilot loads this file automatically; other coding agents can be pointed at it. To use Rulebase on a rule project, read `docs/GETTING-STARTED.md` instead, and don't copy this file there.*
+_For changing Rulebase's own code, in this repository. Copilot loads this file automatically; other coding agents can be pointed at it. To use Rulebase on a rule project, read `docs/GETTING-STARTED.md` instead, and don't copy this file there._
 
 Rulebase is a local, read-only knowledge base over one IBM ODM Rule Designer workspace, served to AI assistants over MCP. Its users trust its answers in order to change business rules. **A confident wrong answer is the worst bug it can have**: worse than a crash, a slow index, or a missing feature. Every change is judged by that.
 
@@ -21,20 +21,20 @@ These hold after every change. A pull request that breaks one is not done. When 
 
 The pipeline is: scan → parse (pure, one file at a time, cached) → link (one model) → query.
 
-| To change… | Edit | Notes |
-|---|---|---|
-| Which files and projects are found, encodings, the decision-service choice | `src/workspace.ts` | Project references come from `.project` and BOM paths in `.ruleproject`. |
-| Reading one file format | `src/parse/bom.ts`, `voc.ts`, `b2x.ts`, `artifacts.ts`; XML helpers in `xml.ts` | Parsers are pure: text in, data and warnings out. |
-| Resolving the vocabulary, B2X, ruleset parameters, which rule uses which member, graph edges | `src/link.ts` | `link()` copies what it changes, so cached parses are never mutated. |
-| Tokenizing BAL, phrase patterns, slot typing, languages | `src/bal.ts`; articles in `src/text.ts` | English, French, Portuguese and Spanish words live in the `ARTICLES`, `BOUNDARY` and `BAL_WORDS` sets. |
-| What a tool answers | `src/kb.ts` | Keep answers small: summaries plus ids, and `get_artifact` for detail. |
-| A tool's name, description or input schema (the MCP contract) | `src/tools.ts` | A breaking change bumps the major version in `package.json` and `src/version.ts`. |
-| How an assistant should use the tools (the procedure) | `skills/odm-change-analysis/SKILL.md`, plus the short `INSTRUCTIONS` in `src/tools.ts` | When a tool or a result field is added, renamed or changes meaning, update both. `test/skill.test.ts` catches tool names that drift. |
-| Ruleflow order, reachability and path conditions | `src/flow.ts` (pure analysis), used by `src/kb.ts` | Conditions are BAL text and are not evaluated. An unconditioned transition beside conditioned ones is "otherwise". |
-| Freshness, watching, incremental rebuild | `src/session.ts`, `src/indexer.ts` | |
-| The cache | `src/store.ts` | It is disposable: on a schema change, bump `SCHEMA_VERSION`. |
-| Quality gates and the HTML report | `src/check.ts`, `src/report.ts` | |
-| CLI commands | `src/main.ts` | |
+| To change…                                                                                   | Edit                                                                                   | Notes                                                                                                                                |
+| -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Which files and projects are found, encodings, the decision-service choice                   | `src/workspace.ts`                                                                     | Project references come from `.project` and BOM paths in `.ruleproject`.                                                             |
+| Reading one file format                                                                      | `src/parse/bom.ts`, `voc.ts`, `b2x.ts`, `artifacts.ts`; XML helpers in `xml.ts`        | Parsers are pure: text in, data and warnings out.                                                                                    |
+| Resolving the vocabulary, B2X, ruleset parameters, which rule uses which member, graph edges | `src/link.ts`                                                                          | `link()` copies what it changes, so cached parses are never mutated.                                                                 |
+| Tokenizing BAL, phrase patterns, slot typing, languages                                      | `src/bal.ts`; articles in `src/text.ts`                                                | English, French, Portuguese and Spanish words live in the `ARTICLES`, `BOUNDARY` and `BAL_WORDS` sets.                               |
+| What a tool answers                                                                          | `src/kb.ts`                                                                            | Keep answers small: summaries plus ids, and `get_artifact` for detail.                                                               |
+| A tool's name, description or input schema (the MCP contract)                                | `src/tools.ts`                                                                         | A breaking change bumps the major version in `package.json` and `src/version.ts`.                                                    |
+| How an assistant should use the tools (the procedure)                                        | `skills/odm-change-analysis/SKILL.md`, plus the short `INSTRUCTIONS` in `src/tools.ts` | When a tool or a result field is added, renamed or changes meaning, update both. `test/skill.test.ts` catches tool names that drift. |
+| Ruleflow order, reachability and path conditions                                             | `src/flow.ts` (pure analysis), used by `src/kb.ts`                                     | Conditions are BAL text and are not evaluated. An unconditioned transition beside conditioned ones is "otherwise".                   |
+| Freshness, watching, incremental rebuild                                                     | `src/session.ts`, `src/indexer.ts`                                                     |                                                                                                                                      |
+| The cache                                                                                    | `src/store.ts`                                                                         | It is disposable: on a schema change, bump `SCHEMA_VERSION`.                                                                         |
+| Quality gates and the HTML report                                                            | `src/check.ts`, `src/report.ts`                                                        |                                                                                                                                      |
+| CLI commands                                                                                 | `src/main.ts`                                                                          |                                                                                                                                      |
 
 ## Done means
 
@@ -68,15 +68,15 @@ Step-by-step recipes for the common kinds of change. Each one ends when the **Do
 
 ### Which recipe
 
-| Situation | Recipe |
-|---|---|
-| A real workspace shows errors, untyped uses, or zero matches | [1. Bug from a real workspace](#1-bug-from-a-real-workspace) |
+| Situation                                                                     | Recipe                                                                   |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| A real workspace shows errors, untyped uses, or zero matches                  | [1. Bug from a real workspace](#1-bug-from-a-real-workspace)             |
 | ODM writes some syntax Rulebase doesn't read (BOM, `.voc`, B2X, XML artifact) | [2. New syntax in a known file type](#2-new-syntax-in-a-known-file-type) |
-| A file type Rulebase skips altogether | [3. New file type](#3-new-file-type) |
-| Rules in a language other than English, French, Portuguese or Spanish | [4. New BAL language](#4-new-bal-language) |
-| The assistant needs an answer no tool gives | [5. New or changed tool](#5-new-or-changed-tool) |
-| A check CI should enforce | [6. New quality gate](#6-new-quality-gate) |
-| A speed or memory target is missed | [7. Performance](#7-performance) |
+| A file type Rulebase skips altogether                                         | [3. New file type](#3-new-file-type)                                     |
+| Rules in a language other than English, French, Portuguese or Spanish         | [4. New BAL language](#4-new-bal-language)                               |
+| The assistant needs an answer no tool gives                                   | [5. New or changed tool](#5-new-or-changed-tool)                         |
+| A check CI should enforce                                                     | [6. New quality gate](#6-new-quality-gate)                               |
+| A speed or memory target is missed                                            | [7. Performance](#7-performance)                                         |
 
 ### 1. Bug from a real workspace
 
@@ -137,18 +137,18 @@ Run `npm run bench -- 5000`. The hot paths, in the order they have mattered: XML
 
 Public ODM workspaces used for regression testing. Clone them outside this repository, run `rulebase check` on each decision-service folder, and compare the error counts and typed-use counts before and after your change.
 
-| Repository (GitHub) | Point Rulebase at | Exercises |
-|---|---|---|
-| `DecisionsDev/odm-transformation-advisor` | the repo root | multi-project, large BOM, nested classes, parameter domains |
-| `DecisionsDev/odm-javatime` | `SampleRulesetStrict`, `SampleRulesetCompatible` | `.b2xa`, conversion operators, `#flags`, two decision services in one folder |
-| `DecisionsDev/odm-libs-in-maven` | `samples/executionserver/j2eerulesession/ruleproject/balsample rule` | classic project, `.ruleproject` parameters, fork/join |
-| `DecisionsDev/odm-container-samples` | `decisioncenter/dynamicdomain/projects` | body-level domains, virtual members |
-| `DecisionsDev/ODM-AI-toolkit-for-Bob` | each folder under `sample_projects/` | 8 small decision services (their `.voc` defects are real) |
-| `ArnabMukherjee1991/LoanValidation` | `Loan Validation Service` | 5 projects, decision tables, definitions with arithmetic |
-| `ncrowther/ODMGovernanceAsset` | `GovernanceRules/rbrgDecisionService` | subflows 4 levels deep, subflow by `Uuid` |
-| `perucello/ODM_EducaCiencia_Template` | `EducaCienciaFastCode/EducaCienciaFastCode` | Portuguese BAL, adjacent slots |
-| `oussemaBenAmor/IA-Hybride` | `brms/BRMS` | French BAL, partitive slots |
-| `jlv91/SYRACUSE` | `SYRACUSE-ODM/syracuse-rule-designer/syracuse-rules` | French BAL, a package named `output` |
-| `IBMStreams/streamsx.health`, `ibm-cloud-architecture/denim-compute`, `AthenaDecisionSystems/athena-owl-demos`, `pberlandier/odm-cicd`, `SaifRehman/ICP-Airways`, `inukshuk-io/ibm-odm-support-samples` | the decision-service project folders | assorted styles and ODM versions |
+| Repository (GitHub)                                                                                                                                                                                     | Point Rulebase at                                                    | Exercises                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `DecisionsDev/odm-transformation-advisor`                                                                                                                                                               | the repo root                                                        | multi-project, large BOM, nested classes, parameter domains                  |
+| `DecisionsDev/odm-javatime`                                                                                                                                                                             | `SampleRulesetStrict`, `SampleRulesetCompatible`                     | `.b2xa`, conversion operators, `#flags`, two decision services in one folder |
+| `DecisionsDev/odm-libs-in-maven`                                                                                                                                                                        | `samples/executionserver/j2eerulesession/ruleproject/balsample rule` | classic project, `.ruleproject` parameters, fork/join                        |
+| `DecisionsDev/odm-container-samples`                                                                                                                                                                    | `decisioncenter/dynamicdomain/projects`                              | body-level domains, virtual members                                          |
+| `DecisionsDev/ODM-AI-toolkit-for-Bob`                                                                                                                                                                   | each folder under `sample_projects/`                                 | 8 small decision services (their `.voc` defects are real)                    |
+| `ArnabMukherjee1991/LoanValidation`                                                                                                                                                                     | `Loan Validation Service`                                            | 5 projects, decision tables, definitions with arithmetic                     |
+| `ncrowther/ODMGovernanceAsset`                                                                                                                                                                          | `GovernanceRules/rbrgDecisionService`                                | subflows 4 levels deep, subflow by `Uuid`                                    |
+| `perucello/ODM_EducaCiencia_Template`                                                                                                                                                                   | `EducaCienciaFastCode/EducaCienciaFastCode`                          | Portuguese BAL, adjacent slots                                               |
+| `oussemaBenAmor/IA-Hybride`                                                                                                                                                                             | `brms/BRMS`                                                          | French BAL, partitive slots                                                  |
+| `jlv91/SYRACUSE`                                                                                                                                                                                        | `SYRACUSE-ODM/syracuse-rule-designer/syracuse-rules`                 | French BAL, a package named `output`                                         |
+| `IBMStreams/streamsx.health`, `ibm-cloud-architecture/denim-compute`, `AthenaDecisionSystems/athena-owl-demos`, `pberlandier/odm-cicd`, `SaifRehman/ICP-Airways`, `inukshuk-io/ibm-odm-support-samples` | the decision-service project folders                                 | assorted styles and ODM versions                                             |
 
 The baseline at the time of writing: 27 decision services, 336 rules, 1,675 of 1,678 term uses typed. Remaining errors are defects in those repositories.

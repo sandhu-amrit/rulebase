@@ -11,17 +11,17 @@ The risk is a change that looks local but changes **which rules run, when, or in
    - the `notes` on its algorithm and exit criteria;
    - the flow's `runBy` or `calledFrom`: if neither exists, nothing runs the flow and the change has no effect.
 
-   *Done when* you can state, for every task the change touches, when it runs and what it runs.
+   _Done when_ you can state, for every task the change touches, when it runs and what it runs.
 
 2. **State the change in the flow's own terms**: task ids, transition conditions written with validated vocabulary (check them with `validate_phrases`), and package names exactly as `get_ruleflow_paths` lists them.
 
 3. **Work out the effect, task by task.** For each task the change touches, and each task after it:
    - **Rules that start or stop running.** Moving a package, deleting a task, or a selection change. Compare the rule lists before and after.
    - **Changed conditions.** A new or changed transition changes `reachedWhen` for its target and for everything after it. Write the old and new conditions side by side. A task that ends up with no path from the start never runs.
-   - **Changed order.** For rules whose order changes, call `get_impact` on each one that sets a value. Any rule that reads that value and now runs *before* it sees the old value.
+   - **Changed order.** For rules whose order changes, call `get_impact` on each one that sets a value. Any rule that reads that value and now runs _before_ it sees the old value.
    - **Algorithm and exit criteria.** Moving rules into a task with exit criteria `Rule` means only the first rule that fires runs. Moving them between RetePlus and Fastpath or Sequential changes whether rules re-trigger each other.
 
-   *Done when* every rule whose running, condition or order changes is listed with the reason.
+   _Done when_ every rule whose running, condition or order changes is listed with the reason.
 
 4. **Check the operations.** `runBy` shows the operations affected. For a subflow, `runsAsSubflow` gives every call chain from an operation down to it, with the combined conditions (`when`). A subflow task runs only when both its own `reachedWhen` and its chain's `when` hold. A chain whose `when` is "never" doesn't run the subflow at all.
 
@@ -29,11 +29,13 @@ The risk is a change that looks local but changes **which rules run, when, or in
 
    ```markdown
    ### Ruleflow change: <ruleflow>
+
    | Order | Task | Reached when (now) | Reached when (proposed) | Rules |
    | 2 | validation | always | always | 6 |
    | 3 | fraud check (new) | – | 'the loan report' is valid data | package fraud (4) |
 
    **Effect**
+
    - Start running: <rules>
    - Stop running: <rules>
    - Different condition or order: <rule>: <before> → <after>

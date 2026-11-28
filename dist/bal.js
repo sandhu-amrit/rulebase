@@ -1,36 +1,287 @@
 import { ARTICLES, normalize, phraseWords } from "./text.js";
 /** Words that end a noun phrase inside a slot. */
 const BOUNDARY = new Set([
-    "is", "are", "not", "and", "or", "then", "else", "if", "to", "set", "make", "it", "that", "true", "false",
-    "less", "more", "greater", "than", "least", "most", "between", "equals", "equal", "does", "contains", "contain",
-    "starts", "ends", "with", "where", "from", "after", "before", "one", "print", "add", "remove", "in", "as",
-    "definitions", "when", "for", "each", "all", "any", "following", "conditions", "condition", "there", "no",
-    "number", "null", "times", "plus", "minus", "divided", "multiplied", "by", "has", "have", "be",
+    "is",
+    "are",
+    "not",
+    "and",
+    "or",
+    "then",
+    "else",
+    "if",
+    "to",
+    "set",
+    "make",
+    "it",
+    "that",
+    "true",
+    "false",
+    "less",
+    "more",
+    "greater",
+    "than",
+    "least",
+    "most",
+    "between",
+    "equals",
+    "equal",
+    "does",
+    "contains",
+    "contain",
+    "starts",
+    "ends",
+    "with",
+    "where",
+    "from",
+    "after",
+    "before",
+    "one",
+    "print",
+    "add",
+    "remove",
+    "in",
+    "as",
+    "definitions",
+    "when",
+    "for",
+    "each",
+    "all",
+    "any",
+    "following",
+    "conditions",
+    "condition",
+    "there",
+    "no",
+    "number",
+    "null",
+    "times",
+    "plus",
+    "minus",
+    "divided",
+    "multiplied",
+    "by",
+    "has",
+    "have",
+    "be",
     // French BAL
-    "est", "sont", "et", "ou", "alors", "si", "sinon", "que", "qui", "pas", "ne", "n", "moins", "egal", "egale",
-    "entre", "avec", "dans", "pour", "au", "aux", "superieur", "inferieur", "grand", "grande", "petit", "petite",
-    "contient", "commence", "termine", "par", "vrai", "faux", "nul", "nulle", "chaque", "tous", "toutes", "aucun",
-    "aucune", "assigner", "mettre", "ajouter", "retirer", "afficher", "rendre", "definir", "ou",
+    "est",
+    "sont",
+    "et",
+    "ou",
+    "alors",
+    "si",
+    "sinon",
+    "que",
+    "qui",
+    "pas",
+    "ne",
+    "n",
+    "moins",
+    "egal",
+    "egale",
+    "entre",
+    "avec",
+    "dans",
+    "pour",
+    "au",
+    "aux",
+    "superieur",
+    "inferieur",
+    "grand",
+    "grande",
+    "petit",
+    "petite",
+    "contient",
+    "commence",
+    "termine",
+    "par",
+    "vrai",
+    "faux",
+    "nul",
+    "nulle",
+    "chaque",
+    "tous",
+    "toutes",
+    "aucun",
+    "aucune",
+    "assigner",
+    "mettre",
+    "ajouter",
+    "retirer",
+    "afficher",
+    "rendre",
+    "definir",
+    "ou",
     // Portuguese and Spanish BAL
-    "e", "se", "entao", "senao", "nao", "maior", "menor", "igual", "verdadeiro", "falso", "nulo", "definir", "definicoes",
-    "es", "y", "entonces", "sino", "mayor", "igual", "verdadero", "falso", "nulo", "definiciones", "en", "em", "con", "com",
+    "e",
+    "se",
+    "entao",
+    "senao",
+    "nao",
+    "maior",
+    "menor",
+    "igual",
+    "verdadeiro",
+    "falso",
+    "nulo",
+    "definir",
+    "definicoes",
+    "es",
+    "y",
+    "entonces",
+    "sino",
+    "mayor",
+    "igual",
+    "verdadero",
+    "falso",
+    "nulo",
+    "definiciones",
+    "en",
+    "em",
+    "con",
+    "com",
 ]);
 const MAX_SLOT_TOKENS = 12;
 /** BAL keywords and operator words: allowed in a validated phrase without being vocabulary. */
 export const BAL_WORDS = new Set([
     ...BOUNDARY,
-    "of", "at", "least", "most", "same", "nothing", "empty", "unknown", "other", "otherwise", "this", "these",
-    "those", "their", "its", "which", "who", "whose", "variable", "value", "values", "date", "time", "today",
-    "now", "year", "years", "month", "months", "day", "days", "week", "weeks", "hour", "hours", "minute", "minutes",
-    "percent", "sum", "average", "minimum", "maximum", "count", "list", "collection", "elements", "element",
-    "first", "last", "size", "new", "true", "false", "yes", "no", "also", "only", "every", "exists", "exist",
-    "below", "above", "under", "over", "within", "outside", "inclusive", "exclusive", "higher", "lower",
-    "greater", "fewer", "smaller", "bigger", "larger", "up", "down", "into", "on", "by", "per", "an", "a", "the",
-    "do", "did", "done", "should", "must", "will", "would", "can", "could", "being", "been", "was", "were",
+    "of",
+    "at",
+    "least",
+    "most",
+    "same",
+    "nothing",
+    "empty",
+    "unknown",
+    "other",
+    "otherwise",
+    "this",
+    "these",
+    "those",
+    "their",
+    "its",
+    "which",
+    "who",
+    "whose",
+    "variable",
+    "value",
+    "values",
+    "date",
+    "time",
+    "today",
+    "now",
+    "year",
+    "years",
+    "month",
+    "months",
+    "day",
+    "days",
+    "week",
+    "weeks",
+    "hour",
+    "hours",
+    "minute",
+    "minutes",
+    "percent",
+    "sum",
+    "average",
+    "minimum",
+    "maximum",
+    "count",
+    "list",
+    "collection",
+    "elements",
+    "element",
+    "first",
+    "last",
+    "size",
+    "new",
+    "true",
+    "false",
+    "yes",
+    "no",
+    "also",
+    "only",
+    "every",
+    "exists",
+    "exist",
+    "below",
+    "above",
+    "under",
+    "over",
+    "within",
+    "outside",
+    "inclusive",
+    "exclusive",
+    "higher",
+    "lower",
+    "greater",
+    "fewer",
+    "smaller",
+    "bigger",
+    "larger",
+    "up",
+    "down",
+    "into",
+    "on",
+    "by",
+    "per",
+    "an",
+    "a",
+    "the",
+    "do",
+    "did",
+    "done",
+    "should",
+    "must",
+    "will",
+    "would",
+    "can",
+    "could",
+    "being",
+    "been",
+    "was",
+    "were",
     // French BAL keywords and operator words
-    "definitions", "il", "elle", "ce", "cette", "ces", "y", "a", "plus", "egaux", "different", "differente", "jour", "jours",
-    "mois", "an", "ans", "annee", "annees", "heure", "heures", "nombre", "somme", "moyenne", "minimum", "maximum", "vide",
-    "dernier", "derniere", "premier", "premiere", "suivant", "suivante", "selon", "sans", "sur", "sous", "apres", "avant",
+    "definitions",
+    "il",
+    "elle",
+    "ce",
+    "cette",
+    "ces",
+    "y",
+    "a",
+    "plus",
+    "egaux",
+    "different",
+    "differente",
+    "jour",
+    "jours",
+    "mois",
+    "an",
+    "ans",
+    "annee",
+    "annees",
+    "heure",
+    "heures",
+    "nombre",
+    "somme",
+    "moyenne",
+    "minimum",
+    "maximum",
+    "vide",
+    "dernier",
+    "derniere",
+    "premier",
+    "premiere",
+    "suivant",
+    "suivante",
+    "selon",
+    "sans",
+    "sur",
+    "sous",
+    "apres",
+    "avant",
 ]);
 /**
  * French / Italian elision (`l'âge`, `d'un`, `qu'il`): the apostrophe belongs to the word, it does not
@@ -48,13 +299,24 @@ export function tokenizeBal(text) {
         const at = match.index;
         const end = at + match[0].length;
         if (match[1] !== undefined) {
-            tokens.push({ kind: "var", value: stripArticles(normalize(match[1])), raw: match[1], at, end });
+            tokens.push({
+                kind: "var",
+                value: stripArticles(normalize(match[1])),
+                raw: match[1],
+                at,
+                end,
+            });
         }
         else if (match[2] !== undefined) {
             tokens.push({ kind: "string", value: match[2], at, end });
         }
         else if (match[3] !== undefined) {
-            tokens.push({ kind: "placeholder", value: match[3].slice(1, -1).trim().toLowerCase(), at, end });
+            tokens.push({
+                kind: "placeholder",
+                value: match[3].slice(1, -1).trim().toLowerCase(),
+                at,
+                end,
+            });
         }
         else if (match[4] !== undefined) {
             tokens.push({ kind: "number", value: match[4], at, end });
@@ -109,7 +371,8 @@ export function compilePattern(template, valueTerm) {
         }
     }
     parts.forEach((part, index) => {
-        if (part.brace && (part.text === "this" || /^\d+$/.test(part.text) || (index === valueIndex && !valueUsed))) {
+        if (part.brace &&
+            (part.text === "this" || /^\d+$/.test(part.text) || (index === valueIndex && !valueUsed))) {
             if (index === valueIndex)
                 valueUsed = true;
             items.push({ slot: slotNames.length });
@@ -246,13 +509,22 @@ export class PhraseMatcher {
 function spanText(tokens, from, to) {
     return tokens
         .slice(from, to)
-        .map((token) => (token.kind === "var" ? `'${token.raw}'` : token.kind === "string" ? `"${token.value}"` : token.kind === "placeholder" ? `<${token.value}>` : token.value))
+        .map((token) => token.kind === "var"
+        ? `'${token.raw}'`
+        : token.kind === "string"
+            ? `"${token.value}"`
+            : token.kind === "placeholder"
+                ? `<${token.value}>`
+                : token.value)
         .join(" ");
 }
 function isNounToken(token) {
     if (!token)
         return false;
-    if (token.kind === "var" || token.kind === "placeholder" || token.kind === "string" || token.kind === "number")
+    if (token.kind === "var" ||
+        token.kind === "placeholder" ||
+        token.kind === "string" ||
+        token.kind === "number")
         return true;
     return token.kind === "word" && !BOUNDARY.has(token.value);
 }
@@ -296,12 +568,17 @@ function backwardNounPhrase(tokens, pos) {
     }
     else {
         // 'x' of 'y' chains: "the borrower of 'the loan' is approved" -> take back through `of` words
-        while (start - 2 >= 0 && tokens[start - 1].kind === "word" && tokens[start - 1].value === "of") {
+        while (start - 2 >= 0 &&
+            tokens[start - 1].kind === "word" &&
+            tokens[start - 1].value === "of") {
             const before = tokens[start - 2];
             if (before.kind !== "word" || BOUNDARY.has(before.value))
                 break;
             start -= 2;
-            while (start - 1 >= 0 && tokens[start - 1].kind === "word" && !BOUNDARY.has(tokens[start - 1].value) && tokens[start - 1].value !== "of")
+            while (start - 1 >= 0 &&
+                tokens[start - 1].kind === "word" &&
+                !BOUNDARY.has(tokens[start - 1].value) &&
+                tokens[start - 1].value !== "of")
                 start--;
         }
     }
@@ -310,12 +587,18 @@ function backwardNounPhrase(tokens, pos) {
 function typeSlot(slot, tokens, env, matcher, depth) {
     let span = tokens.slice(slot.from, slot.to);
     // `in 'the loan report', reject ...`: punctuation at the edges of a slot is not part of its value.
-    while (span.length > 1 && span[span.length - 1].kind === "punct" && [",", ";", ":"].includes(span[span.length - 1].value))
+    while (span.length > 1 &&
+        span[span.length - 1].kind === "punct" &&
+        [",", ";", ":"].includes(span[span.length - 1].value))
         span = span.slice(0, -1);
     while (span.length > 1 && span[0].kind === "punct" && [",", ":"].includes(span[0].value))
         span = span.slice(1);
     // `(the location of 'the merchant')`: brackets around an argument don't change its type.
-    while (span.length > 2 && span[0].kind === "punct" && span[0].value === "(" && span[span.length - 1].kind === "punct" && span[span.length - 1].value === ")") {
+    while (span.length > 2 &&
+        span[0].kind === "punct" &&
+        span[0].value === "(" &&
+        span[span.length - 1].kind === "punct" &&
+        span[span.length - 1].value === ")") {
         span = span.slice(1, -1);
     }
     if (span.length === 1) {
@@ -339,10 +622,14 @@ function typeSlot(slot, tokens, env, matcher, depth) {
             return;
         }
     }
-    const words = span.filter((token) => token.kind === "word").map((token) => token.value);
+    const words = span
+        .filter((token) => token.kind === "word")
+        .map((token) => token.value);
     if (words.length === span.length) {
         // `this ilr project element`, `each item`, `cet élément`, `este pedido`: a demonstrative in front of a concept label
-        const label = words.join(" ").replace(/^(this|each|that|every|ce|cet|cette|ces|chaque|este|esta|esse|essa|cada) /, "");
+        const label = words
+            .join(" ")
+            .replace(/^(this|each|that|every|ce|cet|cette|ces|chaque|este|esta|esse|essa|cada) /, "");
         const concept = env.concepts.get(label);
         if (concept) {
             slot.type = concept;

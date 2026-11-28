@@ -48,7 +48,9 @@ export function children(node, name) {
         if (localName(key) !== name)
             continue;
         for (const item of asArray(value)) {
-            out.push(item && typeof item === "object" ? item : { "#text": String(item ?? "") });
+            out.push(item && typeof item === "object"
+                ? item
+                : { "#text": String(item ?? "") });
         }
     }
     return out;
@@ -105,12 +107,24 @@ export function scalar(node, name) {
 /** Decode file bytes: BOM first, then the XML declaration's encoding, then UTF-8, then windows-1252. */
 export function decodeBytes(bytes) {
     if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-        return { text: new TextDecoder("utf-8").decode(bytes.subarray(3)), encoding: "utf-8", lossy: false };
+        return {
+            text: new TextDecoder("utf-8").decode(bytes.subarray(3)),
+            encoding: "utf-8",
+            lossy: false,
+        };
     }
     if (bytes[0] === 0xff && bytes[1] === 0xfe)
-        return { text: new TextDecoder("utf-16le").decode(bytes.subarray(2)), encoding: "utf-16le", lossy: false };
+        return {
+            text: new TextDecoder("utf-16le").decode(bytes.subarray(2)),
+            encoding: "utf-16le",
+            lossy: false,
+        };
     if (bytes[0] === 0xfe && bytes[1] === 0xff)
-        return { text: new TextDecoder("utf-16be").decode(bytes.subarray(2)), encoding: "utf-16be", lossy: false };
+        return {
+            text: new TextDecoder("utf-16be").decode(bytes.subarray(2)),
+            encoding: "utf-16be",
+            lossy: false,
+        };
     const head = new TextDecoder("latin1").decode(bytes.subarray(0, 200));
     const declared = /<\?xml[^>]*encoding=["']([\w.-]+)["']/i.exec(head)?.[1]?.toLowerCase();
     if (declared && declared !== "utf-8" && declared !== "utf8") {
@@ -122,9 +136,17 @@ export function decodeBytes(bytes) {
         }
     }
     try {
-        return { text: new TextDecoder("utf-8", { fatal: true }).decode(bytes), encoding: "utf-8", lossy: false };
+        return {
+            text: new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+            encoding: "utf-8",
+            lossy: false,
+        };
     }
     catch {
-        return { text: new TextDecoder("windows-1252").decode(bytes), encoding: "windows-1252", lossy: !declared };
+        return {
+            text: new TextDecoder("windows-1252").decode(bytes),
+            encoding: "windows-1252",
+            lossy: !declared,
+        };
     }
 }

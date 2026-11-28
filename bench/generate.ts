@@ -20,7 +20,10 @@ const rand = () => {
 const pick = <T>(items: T[]): T => items[Math.floor(rand() * items.length)];
 const int = (lo: number, hi: number) => lo + Math.floor(rand() * (hi - lo + 1));
 
-const WORDS = "account amount balance band category channel code count credit date debt deposit discount duration fee flag grade income interest limit margin months penalty premium price quota rate ratio region risk score segment status tenure term total value weight".split(" ");
+const WORDS =
+  "account amount balance band category channel code count credit date debt deposit discount duration fee flag grade income interest limit margin months penalty premium price quota rate ratio region risk score segment status tenure term total value weight".split(
+    " ",
+  );
 
 export function generate(out: string, artifacts: number): { files: number } {
   fs.rmSync(out, { recursive: true, force: true });
@@ -33,7 +36,13 @@ export function generate(out: string, artifacts: number): { files: number } {
   };
   const scale = artifacts / 1000;
   const classCount = Math.max(10, Math.round(50 * Math.sqrt(scale)));
-  const classes: { fqn: string; name: string; label: string; members: { name: string; label: string; type: string }[]; parent?: string }[] = [];
+  const classes: {
+    fqn: string;
+    name: string;
+    label: string;
+    members: { name: string; label: string; type: string }[];
+    parent?: string;
+  }[] = [];
   for (let c = 0; c < classCount; c++) {
     const name = `Entity${c}`;
     const pkg = `com.bench.domain${c % 5}`;
@@ -47,11 +56,23 @@ export function generate(out: string, artifacts: number): { files: number } {
         b = pick(WORDS);
       }
       used.add(`${a} ${b}`);
-      members.push({ name: `${a}${b[0].toUpperCase()}${b.slice(1)}`, label: `${a} ${b}`, type: m % 4 === 3 ? "string" : "double" });
+      members.push({
+        name: `${a}${b[0].toUpperCase()}${b.slice(1)}`,
+        label: `${a} ${b}`,
+        type: m % 4 === 3 ? "string" : "double",
+      });
     }
-    classes.push({ fqn: `${pkg}.${name}`, name, label: `entity ${c}`, members, parent: c > 4 && c % 3 === 0 ? classes[c % 5].fqn : undefined });
+    classes.push({
+      fqn: `${pkg}.${name}`,
+      name,
+      label: `entity ${c}`,
+      members,
+      parent: c > 4 && c % 3 === 0 ? classes[c % 5].fqn : undefined,
+    });
   }
-  const params = classes.slice(0, Math.min(8, classes.length)).map((klass, i) => ({ name: `p${i}`, verbal: `the ${klass.label}`, type: klass.fqn, klass }));
+  const params = classes
+    .slice(0, Math.min(8, classes.length))
+    .map((klass, i) => ({ name: `p${i}`, verbal: `the ${klass.label}`, type: klass.fqn, klass }));
 
   // BOM project
   write("BenchBOM/.ruleproject", ruleproject("BenchBOM", false, []));
@@ -98,7 +119,12 @@ export function generate(out: string, artifacts: number): { files: number } {
     write(`${name}/.ruleproject`, ruleproject(name, false, ["BenchBOM"]));
     write(`${name}/.project`, eclipse(name, ["BenchBOM"]));
   }
-  packages.forEach((pkg, i) => write(`${project(i)}/rules/${pkg.replace(/\./g, "/")}/.rulepackage`, rulePackage(pkg.split(".").pop() as string, `pkg-${i}`)));
+  packages.forEach((pkg, i) =>
+    write(
+      `${project(i)}/rules/${pkg.replace(/\./g, "/")}/.rulepackage`,
+      rulePackage(pkg.split(".").pop() as string, `pkg-${i}`),
+    ),
+  );
 
   const nav = (param: (typeof params)[number]) => {
     const member = pick(param.klass.members);
@@ -112,7 +138,9 @@ export function generate(out: string, artifacts: number): { files: number } {
     const b = nav(other);
     const useDefinition = r % 5 === 0;
     const bal = [
-      ...(useDefinition ? ["definitions", `    set 'the subject' to ${param.verbal.replace(/^the /, "a ")} ;`] : []),
+      ...(useDefinition
+        ? ["definitions", `    set 'the subject' to ${param.verbal.replace(/^the /, "a ")} ;`]
+        : []),
       "if",
       `    ${useDefinition ? a.text.replace(`'${param.verbal}'`, "'the subject'") : a.text} is more than ${int(1, 1000)}`,
       `    and ${b.member.type === "string" ? `${b.text} is "${pick(WORDS)}"` : `${b.text} is at least ${int(1, 100)}`}`,
@@ -121,32 +149,59 @@ export function generate(out: string, artifacts: number): { files: number } {
       `    set ${a.text.replace(/^the /, "the ")} to ${int(1, 9)} ;`,
     ].join("\n");
     const name = `${pick(WORDS)} ${pick(WORDS)} check ${r}`;
-    write(`${project(pkgIndex)}/rules/${packages[pkgIndex].replace(/\./g, "/")}/${name}.brl`, actionRule(name, `brl-${r}`, bal));
+    write(
+      `${project(pkgIndex)}/rules/${packages[pkgIndex].replace(/\./g, "/")}/${name}.brl`,
+      actionRule(name, `brl-${r}`, bal),
+    );
   }
   for (let t = 0; t < tablesTarget; t++) {
     const pkgIndex = t % packageCount;
     const param = pick(params);
     const c0 = pick(param.klass.members.filter((member) => member.type === "double"));
-    const c1 = pick(param.klass.members.filter((member) => member.type === "double" && member !== c0)) ?? c0;
+    const c1 =
+      pick(param.klass.members.filter((member) => member.type === "double" && member !== c0)) ?? c0;
     const rows = t % 2 === 0 ? int(50, 200) : int(3, 12);
     const name = `${pick(WORDS)} table ${t}`;
     write(
       `${project(pkgIndex)}/rules/${packages[pkgIndex].replace(/\./g, "/")}/${name}.dta`,
-      decisionTable(name, `dta-${t}`, `the ${c0.label} of '${param.verbal}'`, `the ${c1.label} of '${param.verbal}'`, `flag '${param.verbal}' with <a string>`, rows),
+      decisionTable(
+        name,
+        `dta-${t}`,
+        `the ${c0.label} of '${param.verbal}'`,
+        `the ${c1.label} of '${param.verbal}'`,
+        `flag '${param.verbal}' with <a string>`,
+        rows,
+      ),
     );
   }
   // Decision service project: ruleflows, variable set, operations
-  write("BenchDS/.ruleproject", ruleproject("BenchDS", true, ["BenchRulesA", "BenchRulesB", "BenchBOM"]));
+  write(
+    "BenchDS/.ruleproject",
+    ruleproject("BenchDS", true, ["BenchRulesA", "BenchRulesB", "BenchBOM"]),
+  );
   write("BenchDS/.project", eclipse("BenchDS", ["BenchRulesA", "BenchRulesB", "BenchBOM"]));
   write("BenchDS/rules/parameters.var", variableSet(params));
   for (let f = 0; f < flowsTarget; f++) {
     const selected = packages.filter((_, i) => i % flowsTarget === f || (f === 0 && i % 3 === 0));
-    write(`BenchDS/rules/flows/flow ${f}.rfl`, ruleflow(`flow ${f}`, `rfl-${f}`, selected.length ? selected : [packages[0]]));
+    write(
+      `BenchDS/rules/flows/flow ${f}.rfl`,
+      ruleflow(`flow ${f}`, `rfl-${f}`, selected.length ? selected : [packages[0]]),
+    );
   }
   for (let o = 0; o < opsTarget; o++) {
-    write(`BenchDS/deployment/operation ${o}.dop`, operation(`operation ${o}`, `op-${o}`, `flow ${o % flowsTarget}`, `rfl-${o % flowsTarget}`, params));
+    write(
+      `BenchDS/deployment/operation ${o}.dop`,
+      operation(
+        `operation ${o}`,
+        `op-${o}`,
+        `flow ${o % flowsTarget}`,
+        `rfl-${o % flowsTarget}`,
+        params,
+      ),
+    );
   }
-  for (let v = 1; v < opsTarget; v++) write(`BenchDS/rules/vars/extra ${v}.var`, variableSet([], `extra ${v}`, `var-${v}`));
+  for (let v = 1; v < opsTarget; v++)
+    write(`BenchDS/rules/vars/extra ${v}.var`, variableSet([], `extra ${v}`, `var-${v}`));
   return { files };
 }
 
@@ -169,7 +224,14 @@ function rulePackage(name: string, uuid: string): string {
 function actionRule(name: string, uuid: string, bal: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<ilog.rules.studio.model.brl:ActionRule xmlns:ilog.rules.studio.model.brl="http://ilog.rules.studio/model/brl.ecore">\n  <name>${name}</name>\n  <uuid>${uuid}</uuid>\n  <locale>en_US</locale>\n  <definition><![CDATA[${bal}]]></definition>\n</ilog.rules.studio.model.brl:ActionRule>\n`;
 }
-function decisionTable(name: string, uuid: string, c0: string, c1: string, action: string, rows: number): string {
+function decisionTable(
+  name: string,
+  uuid: string,
+  c0: string,
+  c1: string,
+  action: string,
+  rows: number,
+): string {
   let contents = "";
   const outer = Math.max(1, Math.round(Math.sqrt(rows)));
   const inner = Math.max(1, Math.ceil(rows / outer));
@@ -197,8 +259,15 @@ function decisionTable(name: string, uuid: string, c0: string, c1: string, actio
 `;
 }
 function ruleflow(name: string, uuid: string, packages: string[]): string {
-  const tasks = packages.map((pkg, i) => `<RuleTask ExecutionMode="Fastpath" Identifier="t${i}"><RuleList><Package Name="${pkg}"/></RuleList></RuleTask>`).join("");
-  const nodes = ["start", ...packages.map((_, i) => `t${i}`), "end"].map((task, i) => `<TaskNode Identifier="n${i}" Task="${task}"/>`).join("");
+  const tasks = packages
+    .map(
+      (pkg, i) =>
+        `<RuleTask ExecutionMode="Fastpath" Identifier="t${i}"><RuleList><Package Name="${pkg}"/></RuleList></RuleTask>`,
+    )
+    .join("");
+  const nodes = ["start", ...packages.map((_, i) => `t${i}`), "end"]
+    .map((task, i) => `<TaskNode Identifier="n${i}" Task="${task}"/>`)
+    .join("");
   const transitions = ["start", ...packages.map((_, i) => `t${i}`), "end"]
     .slice(0, -1)
     .map((_, i) => `<Transition Identifier="x${i}" Source="n${i}" Target="n${i + 1}"/>`)
@@ -210,7 +279,13 @@ function ruleflow(name: string, uuid: string, packages: string[]): string {
 </ilog.rules.studio.model.ruleflow:RuleFlow>
 `;
 }
-function operation(name: string, uuid: string, flowName: string, flowUuid: string, params: { name: string }[]): string {
+function operation(
+  name: string,
+  uuid: string,
+  flowName: string,
+  flowUuid: string,
+  params: { name: string }[],
+): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <com.ibm.rules.studio.model.decisionservice:Operation xmlns:com.ibm.rules.studio.model.decisionservice="http://com.ibm.rules.studio/model/decisionservice.ecore" rulesetName="${name.replace(/ /g, "_")}" usingRuleflow="true" ruleflowName="${flowName}">
   <name>${name}</name><uuid>${uuid}</uuid>
@@ -219,7 +294,11 @@ function operation(name: string, uuid: string, flowName: string, flowUuid: strin
 </com.ibm.rules.studio.model.decisionservice:Operation>
 `;
 }
-function variableSet(params: { name: string; verbal: string; type: string }[], name = "parameters", uuid = "var-0"): string {
+function variableSet(
+  params: { name: string; verbal: string; type: string }[],
+  name = "parameters",
+  uuid = "var-0",
+): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <ilog.rules.studio.model.base:VariableSet xmlns:ilog.rules.studio.model.base="http://ilog.rules.studio/model/base.ecore">
   <name>${name}</name><uuid>${uuid}</uuid>

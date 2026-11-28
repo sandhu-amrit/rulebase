@@ -22,7 +22,8 @@ const IGNORED = /(^|[\\/])(\.metadata|\.git|\.svn|node_modules)([\\/]|$)/;
 const BUILD_DIRS = new Set(["output", "bin", "target"]);
 /** A build folder is output/bin/target directly inside a rule project (next to its .ruleproject). */
 function isBuildDir(dir) {
-    return BUILD_DIRS.has(path.basename(dir)) && fs.existsSync(path.join(path.dirname(dir), ".ruleproject"));
+    return (BUILD_DIRS.has(path.basename(dir)) &&
+        fs.existsSync(path.join(path.dirname(dir), ".ruleproject")));
 }
 /** Whether a changed path (relative to the workspace) can affect the index. */
 function ignoredChange(root, relative) {
@@ -146,7 +147,11 @@ export class Session {
         for (const file of result.scan.files)
             delete file.content;
         this.result = result;
-        const files = result.scan.files.map((file) => ({ path: file.path, hash: file.hash, parseKey: cacheKey(file) }));
+        const files = result.scan.files.map((file) => ({
+            path: file.path,
+            hash: file.hash,
+            parseKey: cacheKey(file),
+        }));
         this.store.record(result.kb, files);
         const { stats } = result;
         this.log(`indexed ${stats.files} files (${stats.parsed} parsed, ${stats.reused} reused) in ${stats.scanMs + stats.parseMs + stats.linkMs} ms`);

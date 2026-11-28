@@ -14,24 +14,36 @@ const files = fs.readdirSync(dir).filter((file) => file.endsWith(".md"));
 const skill = files.map(read).join("\n");
 
 test("the skill names every MCP tool, and only real ones", () => {
-  for (const tool of TOOLS) assert.ok(skill.includes(`\`${tool.name}\``), `skill does not mention ${tool.name}`);
+  for (const tool of TOOLS)
+    assert.ok(skill.includes(`\`${tool.name}\``), `skill does not mention ${tool.name}`);
   const named = [...skill.matchAll(/`([a-z]+(?:_[a-z]+)+)`/g)].map((match) => match[1]);
   const known = new Set(TOOLS.map((tool) => tool.name));
   for (const name of named) assert.ok(known.has(name), `skill mentions unknown tool ${name}`);
 });
 
 test("the skill's result fields exist in the tool answers", () => {
-  for (const field of ["needsVerbalization", "vocabularyGaps", "modify", "add", "checked.errors", "checked.stale", "moreRows", "resolved: false"]) {
+  for (const field of [
+    "needsVerbalization",
+    "vocabularyGaps",
+    "modify",
+    "add",
+    "checked.errors",
+    "checked.stale",
+    "moreRows",
+    "resolved: false",
+  ]) {
     assert.ok(skill.includes(field), field);
   }
   const kb = fs.readFileSync(path.join(ROOT, "src", "kb.ts"), "utf8");
-  for (const field of ["needsVerbalization", "vocabularyGaps", "moreRows", "stale", "total"]) assert.ok(kb.includes(field), `kb.ts no longer returns ${field}`);
+  for (const field of ["needsVerbalization", "vocabularyGaps", "moreRows", "stale", "total"])
+    assert.ok(kb.includes(field), `kb.ts no longer returns ${field}`);
 });
 
 test("every branch file the skill points at exists, and every file is pointed at", () => {
   const pointed = [...main.matchAll(/`([a-z-]+\.md)`/g)].map((match) => match[1]);
   for (const file of pointed) assert.ok(files.includes(file), `SKILL.md points at missing ${file}`);
-  for (const file of files) if (file !== "SKILL.md") assert.ok(pointed.includes(file), `${file} is never pointed at`);
+  for (const file of files)
+    if (file !== "SKILL.md") assert.ok(pointed.includes(file), `${file} is never pointed at`);
 });
 
 test("the skill has valid frontmatter", () => {

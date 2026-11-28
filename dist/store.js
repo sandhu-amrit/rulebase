@@ -66,7 +66,9 @@ export class Store {
             this.db.exec("DROP TABLE IF EXISTS parsed; DROP TABLE IF EXISTS snapshots; DROP TABLE IF EXISTS snapshot_files; DROP TABLE IF EXISTS meta;");
         }
         this.db.exec(SCHEMA);
-        this.db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema', ?)").run(String(SCHEMA_VERSION));
+        this.db
+            .prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema', ?)")
+            .run(String(SCHEMA_VERSION));
         this.getStmt = this.db.prepare("SELECT body FROM parsed WHERE key = ?");
         this.setStmt = this.db.prepare("INSERT OR REPLACE INTO parsed (key, path, body) VALUES (?, ?, ?)");
     }
@@ -189,9 +191,17 @@ export function summarize(kb) {
     return {
         artifacts: [...kb.model.artifacts.values()]
             .filter((item) => item.type !== "package")
-            .map((item) => ({ id: item.id, name: item.name, type: item.type, path: item.provenance.path, fingerprint: fingerprint(item) }))
+            .map((item) => ({
+            id: item.id,
+            name: item.name,
+            type: item.type,
+            path: item.provenance.path,
+            fingerprint: fingerprint(item),
+        }))
             .sort((a, b) => a.id.localeCompare(b.id)),
-        phrases: [...kb.model.phrases.values()].map((phrase) => ({ id: phrase.id, text: phrase.text })).sort((a, b) => a.id.localeCompare(b.id)),
+        phrases: [...kb.model.phrases.values()]
+            .map((phrase) => ({ id: phrase.id, text: phrase.text }))
+            .sort((a, b) => a.id.localeCompare(b.id)),
         members: [...kb.model.members.keys()].sort(),
         ...(kb.meta.branch ? { branch: kb.meta.branch } : {}),
     };

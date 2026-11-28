@@ -13,15 +13,61 @@ import { portablePath } from "./text.ts";
 
 /** Extensions Rulebase reads. Anything else inside a rule project's model folders is reported. */
 export const INDEXED_EXTENSIONS = new Set([
-  ".brl", ".dta", ".dtr", ".trl", ".fct", ".rfl", ".dop", ".var", ".rulepackage", ".bom", ".voc", ".b2x", ".b2xa",
+  ".brl",
+  ".dta",
+  ".dtr",
+  ".trl",
+  ".fct",
+  ".rfl",
+  ".dop",
+  ".var",
+  ".rulepackage",
+  ".bom",
+  ".voc",
+  ".b2x",
+  ".b2xa",
 ]);
 
 /** Known ODM files that are deliberately not indexed; counted in the footer, not warned per file. */
-const KNOWN_SKIPPED = new Set([".qry", ".tst", ".brmx", ".sc", ".dsc", ".ilrt", ".properties", ".xml", ".xsd", ".jar", ".class", ".java", ".prefs", ".json", ".txt", ".md"]);
+const KNOWN_SKIPPED = new Set([
+  ".qry",
+  ".tst",
+  ".brmx",
+  ".sc",
+  ".dsc",
+  ".ilrt",
+  ".properties",
+  ".xml",
+  ".xsd",
+  ".jar",
+  ".class",
+  ".java",
+  ".prefs",
+  ".json",
+  ".txt",
+  ".md",
+]);
 
-const SKIP_DIRS = new Set([".metadata", ".git", ".svn", "node_modules", "output", "bin", "target", ".settings", "RemoteSystemsTempFiles"]);
+const SKIP_DIRS = new Set([
+  ".metadata",
+  ".git",
+  ".svn",
+  "node_modules",
+  "output",
+  "bin",
+  "target",
+  ".settings",
+  "RemoteSystemsTempFiles",
+]);
 /** Skipped anywhere. The others (output, bin, target) are build folders only at a project's top level: inside rules/ they can be packages. */
-const ALWAYS_SKIP = new Set([".metadata", ".git", ".svn", "node_modules", ".settings", "RemoteSystemsTempFiles"]);
+const ALWAYS_SKIP = new Set([
+  ".metadata",
+  ".git",
+  ".svn",
+  "node_modules",
+  ".settings",
+  "RemoteSystemsTempFiles",
+]);
 
 export interface WorkspaceConfig {
   decisionService?: string;
@@ -84,7 +130,11 @@ export interface WorkspaceScan {
   stats: Map<string, FileStat>;
 }
 
-export function loadConfig(root: string): { config: WorkspaceConfig; hash: string; warnings: Warning[] } {
+export function loadConfig(root: string): {
+  config: WorkspaceConfig;
+  hash: string;
+  warnings: Warning[];
+} {
   const file = path.join(root, "rulebase.yaml");
   if (!fs.existsSync(file)) return { config: {}, hash: "", warnings: [] };
   const text = fs.readFileSync(file, "utf8");
@@ -95,7 +145,13 @@ export function loadConfig(root: string): { config: WorkspaceConfig; hash: strin
     return {
       config: {},
       hash: sha(text),
-      warnings: [{ path: "rulebase.yaml", severity: "error", message: `not valid YAML: ${error instanceof Error ? error.message : String(error)}` }],
+      warnings: [
+        {
+          path: "rulebase.yaml",
+          severity: "error",
+          message: `not valid YAML: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      ],
     };
   }
 }
@@ -120,7 +176,8 @@ function findProjectFolders(root: string, maxDepth = 4): string[] {
     }
     if (depth >= maxDepth) return;
     for (const entry of entries) {
-      if (entry.isDirectory() && !SKIP_DIRS.has(entry.name)) walk(path.join(dir, entry.name), depth + 1);
+      if (entry.isDirectory() && !SKIP_DIRS.has(entry.name))
+        walk(path.join(dir, entry.name), depth + 1);
     }
   };
   walk(root, 0);
@@ -136,7 +193,11 @@ function readProject(root: string, folder: string, warnings: Warning[]): Project
     if (!parsed) throw new Error("no root element");
     node = parsed.node;
   } catch (error) {
-    warnings.push({ path: `${rel}/.ruleproject`, severity: "error", message: `cannot read rule project: ${error instanceof Error ? error.message : String(error)}` });
+    warnings.push({
+      path: `${rel}/.ruleproject`,
+      severity: "error",
+      message: `cannot read rule project: ${error instanceof Error ? error.message : String(error)}`,
+    });
     return null;
   }
   const references = new Set<string>();
@@ -152,7 +213,11 @@ function readProject(root: string, folder: string, warnings: Warning[]): Project
         if (name) references.add(name);
       }
     } catch (error) {
-      warnings.push({ path: `${rel}/.project`, severity: "error", message: `cannot read Eclipse project file: ${error instanceof Error ? error.message : String(error)}` });
+      warnings.push({
+        path: `${rel}/.project`,
+        severity: "error",
+        message: `cannot read Eclipse project file: ${error instanceof Error ? error.message : String(error)}`,
+      });
     }
   }
   const sourceFolders: string[] = [];
@@ -176,7 +241,11 @@ function readProject(root: string, folder: string, warnings: Warning[]): Project
   references.delete(name);
   const product = otherProduct(folder);
   if (product) {
-    warnings.push({ path: `${rel}/.ruleproject`, severity: "error", message: `this is ${product}, not an ODM rule project: its ${product.startsWith("a Decision Server") ? "event rules" : "decision models"} are not read` });
+    warnings.push({
+      path: `${rel}/.ruleproject`,
+      severity: "error",
+      message: `this is ${product}, not an ODM rule project: its ${product.startsWith("a Decision Server") ? "event rules" : "decision models"} are not read`,
+    });
   }
   const parameters = children(node, "parameters")
     .map((item) => ({
@@ -206,7 +275,10 @@ export function scanWorkspace(rootInput: string, options: ScanOptions = {}): Wor
   // Pointing at a project folder means "this project is the decision service";
   // the workspace is the folder that holds it and its sibling projects.
   let chosenFolder: string | undefined;
-  if (fs.existsSync(path.join(root, ".ruleproject")) && !fs.existsSync(path.join(root, "rulebase.yaml"))) {
+  if (
+    fs.existsSync(path.join(root, ".ruleproject")) &&
+    !fs.existsSync(path.join(root, "rulebase.yaml"))
+  ) {
     chosenFolder = path.basename(root);
     root = path.dirname(root);
   }
@@ -220,7 +292,11 @@ export function scanWorkspace(rootInput: string, options: ScanOptions = {}): Wor
   const byName = new Map<string, ProjectInfo>();
   for (const project of all) {
     if (byName.has(project.name)) {
-      warnings.push({ path: `${project.folder}/.ruleproject`, severity: "error", message: `two projects are named '${project.name}'; using ${byName.get(project.name)?.folder}` });
+      warnings.push({
+        path: `${project.folder}/.ruleproject`,
+        severity: "error",
+        message: `two projects are named '${project.name}'; using ${byName.get(project.name)?.folder}`,
+      });
       continue;
     }
     byName.set(project.name, project);
@@ -232,11 +308,18 @@ export function scanWorkspace(rootInput: string, options: ScanOptions = {}): Wor
   if (chosen) {
     service = chosen;
     if (!chosen.isDecisionService) {
-      warnings.push({ path: `${chosen.folder}/.ruleproject`, severity: "info", message: "project is not marked as a decision service; indexing it as the main project" });
+      warnings.push({
+        path: `${chosen.folder}/.ruleproject`,
+        severity: "info",
+        message: "project is not marked as a decision service; indexing it as the main project",
+      });
     }
   } else if (config.decisionService) {
     service = byName.get(config.decisionService);
-    if (!service) throw new Error(`rulebase.yaml names decision service '${config.decisionService}', which is not in the workspace`);
+    if (!service)
+      throw new Error(
+        `rulebase.yaml names decision service '${config.decisionService}', which is not in the workspace`,
+      );
   } else if (services.length === 1) {
     service = services[0];
   } else if (services.length > 1) {
@@ -250,7 +333,11 @@ export function scanWorkspace(rootInput: string, options: ScanOptions = {}): Wor
     const tops = all.filter((project) => !referenced.has(project.name));
     if (tops.length === 1) {
       service = tops[0];
-      warnings.push({ path: `${service.folder}/.ruleproject`, severity: "info", message: "no project is marked as a decision service; indexing the only top-level project" });
+      warnings.push({
+        path: `${service.folder}/.ruleproject`,
+        severity: "info",
+        message: "no project is marked as a decision service; indexing the only top-level project",
+      });
     } else {
       throw new Error(
         `No project is marked as a decision service, and ${tops.length} projects are not referenced by any other (${tops.map((item) => item.name).join(", ")}). ` +
@@ -274,18 +361,31 @@ export function scanWorkspace(rootInput: string, options: ScanOptions = {}): Wor
   for (const name of config.include ?? []) {
     const project = byName.get(name);
     if (project) visit(project);
-    else warnings.push({ path: "rulebase.yaml", severity: "error", message: `include names unknown project '${name}'` });
+    else
+      warnings.push({
+        path: "rulebase.yaml",
+        severity: "error",
+        message: `include names unknown project '${name}'`,
+      });
   }
   for (const name of config.exclude ?? []) {
     if (name === service.name) {
-      warnings.push({ path: "rulebase.yaml", severity: "error", message: "the decision service itself cannot be excluded" });
+      warnings.push({
+        path: "rulebase.yaml",
+        severity: "error",
+        message: "the decision service itself cannot be excluded",
+      });
       continue;
     }
     included.delete(name);
   }
   for (const project of all) {
     if (!included.has(project.name) && !chosenFolder) {
-      warnings.push({ path: `${project.folder}/.ruleproject`, severity: "info", message: `rule project '${project.name}' is not referenced by '${service.name}' and is not indexed` });
+      warnings.push({
+        path: `${project.folder}/.ruleproject`,
+        severity: "info",
+        message: `rule project '${project.name}' is not referenced by '${service.name}' and is not indexed`,
+      });
     }
   }
 
@@ -297,7 +397,18 @@ export function scanWorkspace(rootInput: string, options: ScanOptions = {}): Wor
     collectFiles(root, project, files, skipped, warnings, options.previous, stats);
   }
   files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-  return { root, config, configHash, decisionService: service.name, projects, files, warnings, skipped, branch: detectBranch(root, projects), stats };
+  return {
+    root,
+    config,
+    configHash,
+    decisionService: service.name,
+    projects,
+    files,
+    warnings,
+    skipped,
+    branch: detectBranch(root, projects),
+    stats,
+  };
 }
 
 function collectFiles(
@@ -315,7 +426,11 @@ function collectFiles(
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
     } catch (error) {
-      warnings.push({ path: portablePath(path.relative(root, dir)), severity: "error", message: `cannot list folder: ${error instanceof Error ? error.message : String(error)}` });
+      warnings.push({
+        path: portablePath(path.relative(root, dir)),
+        severity: "error",
+        message: `cannot list folder: ${error instanceof Error ? error.message : String(error)}`,
+      });
       return;
     }
     for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
@@ -328,12 +443,17 @@ function collectFiles(
       if (!entry.isFile()) continue;
       const ext = extensionOfName(entry.name);
       const rel = portablePath(path.relative(root, full));
-      if (entry.name === ".ruleproject" || entry.name === ".project" || entry.name === ".classpath") continue;
+      if (entry.name === ".ruleproject" || entry.name === ".project" || entry.name === ".classpath")
+        continue;
       if (!INDEXED_EXTENSIONS.has(ext)) {
         const key = ext || entry.name;
         skipped[key] = (skipped[key] ?? 0) + 1;
         if (!KNOWN_SKIPPED.has(ext) && role !== "other") {
-          warnings.push({ path: rel, severity: "info", message: `file type '${key}' is not indexed` });
+          warnings.push({
+            path: rel,
+            severity: "info",
+            message: `file type '${key}' is not indexed`,
+          });
         }
         continue;
       }
@@ -342,7 +462,11 @@ function collectFiles(
       try {
         stat = fs.statSync(full);
       } catch (error) {
-        warnings.push({ path: rel, severity: "error", message: `cannot read file: ${error instanceof Error ? error.message : String(error)}` });
+        warnings.push({
+          path: rel,
+          severity: "error",
+          message: `cannot read file: ${error instanceof Error ? error.message : String(error)}`,
+        });
         continue;
       }
       const known = previous?.get(rel);
@@ -355,16 +479,30 @@ function collectFiles(
         try {
           bytes = fs.readFileSync(full);
         } catch (error) {
-          warnings.push({ path: rel, severity: "error", message: `cannot read file: ${error instanceof Error ? error.message : String(error)}` });
+          warnings.push({
+            path: rel,
+            severity: "error",
+            message: `cannot read file: ${error instanceof Error ? error.message : String(error)}`,
+          });
           continue;
         }
         const decoded = decodeBytes(bytes);
         content = decoded.text;
-        info = { size: stat.size, mtimeMs: stat.mtimeMs, hash: sha(bytes), encoding: decoded.encoding, lossy: decoded.lossy };
+        info = {
+          size: stat.size,
+          mtimeMs: stat.mtimeMs,
+          hash: sha(bytes),
+          encoding: decoded.encoding,
+          lossy: decoded.lossy,
+        };
       }
       stats.set(rel, info);
       if (info.lossy) {
-        warnings.push({ path: rel, severity: "info", message: "not valid UTF-8 and no declared encoding; read as windows-1252" });
+        warnings.push({
+          path: rel,
+          severity: "info",
+          message: "not valid UTF-8 and no declared encoding; read as windows-1252",
+        });
       }
       files.push({
         path: rel,
@@ -384,7 +522,11 @@ function collectFiles(
   for (const folder of project.sourceFolders) {
     const dir = path.join(projectDir, folder);
     if (!fs.existsSync(dir)) {
-      warnings.push({ path: `${project.folder}/${folder}`, severity: "info", message: "source folder declared in .ruleproject does not exist" });
+      warnings.push({
+        path: `${project.folder}/${folder}`,
+        severity: "info",
+        message: "source folder declared in .ruleproject does not exist",
+      });
       continue;
     }
     seen.add(path.resolve(dir));
@@ -439,7 +581,8 @@ function packageOf(relativeDir: string): string {
 
 /** Projects of other IBM decision products share the .ruleproject layout but not the rule formats. */
 function otherProduct(folder: string): string | undefined {
-  if (fs.existsSync(path.join(folder, "agent.adsc"))) return "a Decision Server Insights rule agent";
+  if (fs.existsSync(path.join(folder, "agent.adsc")))
+    return "a Decision Server Insights rule agent";
   let found: string | undefined;
   const walk = (dir: string, depth: number) => {
     if (found || depth > 4) return;
@@ -450,8 +593,10 @@ function otherProduct(folder: string): string | undefined {
       return;
     }
     for (const entry of entries) {
-      if (entry.isDirectory() && !ALWAYS_SKIP.has(entry.name)) walk(path.join(dir, entry.name), depth + 1);
-      else if (/\.(dmo|drl)$/.test(entry.name)) found = "an Automation Decision Services (ADS) project";
+      if (entry.isDirectory() && !ALWAYS_SKIP.has(entry.name))
+        walk(path.join(dir, entry.name), depth + 1);
+      else if (/\.(dmo|drl)$/.test(entry.name))
+        found = "an Automation Decision Services (ADS) project";
     }
   };
   walk(path.join(folder, "rules"), 0);

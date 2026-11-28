@@ -34,7 +34,9 @@ const time = <T>(fn: () => T): [T, number] => {
 
 const cold = new Session(workspace, { cacheFile });
 const [first, fullMs] = time(() => cold.rebuild());
-console.log(`\nfull index: ${Math.round(fullMs)} ms (scan ${first.stats.scanMs}, parse ${first.stats.parseMs}, link ${first.stats.linkMs}) · ${first.kb.rules().length} rules · ${first.kb.model.phrases.size} phrases · RSS ${mb()} MB`);
+console.log(
+  `\nfull index: ${Math.round(fullMs)} ms (scan ${first.stats.scanMs}, parse ${first.stats.parseMs}, link ${first.stats.linkMs}) · ${first.kb.rules().length} rules · ${first.kb.model.phrases.size} phrases · RSS ${mb()} MB`,
+);
 cold.close();
 
 const warm = new Session(workspace, { cacheFile });
@@ -43,21 +45,45 @@ console.log(`warm start (cache reused): ${Math.round(warmMs)} ms`);
 
 let rules = warm.kb().rules();
 const victim = path.join(workspace, rules[Math.floor(rules.length / 2)].provenance.path);
-fs.writeFileSync(victim, fs.readFileSync(victim, "utf8").replace(/is more than (\d+)/, (_, n: string) => `is more than ${Number(n) + 1}`));
+fs.writeFileSync(
+  victim,
+  fs
+    .readFileSync(victim, "utf8")
+    .replace(/is more than (\d+)/, (_, n: string) => `is more than ${Number(n) + 1}`),
+);
 const [inc, incMs] = time(() => warm.rebuild());
-console.log(`incremental (1 file changed): ${Math.round(incMs)} ms (parsed ${inc.stats.parsed}, reused ${inc.stats.reused})`);
+console.log(
+  `incremental (1 file changed): ${Math.round(incMs)} ms (parsed ${inc.stats.parsed}, reused ${inc.stats.reused})`,
+);
 
 const q = warm.kb();
 rules = q.rules();
 (globalThis as { gc?: () => void }).gc?.();
-const sampleMember = [...q.model.members.values()].find((member) => member.kind === "attribute" && !member.virtual)!;
-const samplePhrase = [...q.model.phrases.values()].find((phrase) => phrase.memberId === sampleMember.id && phrase.kind === "navigation")!;
+const sampleMember = [...q.model.members.values()].find(
+  (member) => member.kind === "attribute" && !member.virtual,
+)!;
+const samplePhrase = [...q.model.phrases.values()].find(
+  (phrase) => phrase.memberId === sampleMember.id && phrase.kind === "navigation",
+)!;
 const words = samplePhrase.text.replace(/<[^>]*>/g, "").trim();
 const calls: [string, () => unknown][] = [
   ["find_terms", () => q.findTerms({ query: words })],
   ["list_terms(class)", () => q.listTerms({ class: sampleMember.owner })],
-  ["validate_phrases", () => q.validatePhrases({ phrases: [`${samplePhrase.text.replace(/<([^>]*)>/, "the $1")} is more than 3`] })],
-  ["find_change_candidates", () => q.findChangeCandidates({ terms: [sampleMember.id], requirement: `raise the ${words} threshold` })],
+  [
+    "validate_phrases",
+    () =>
+      q.validatePhrases({
+        phrases: [`${samplePhrase.text.replace(/<([^>]*)>/, "the $1")} is more than 3`],
+      }),
+  ],
+  [
+    "find_change_candidates",
+    () =>
+      q.findChangeCandidates({
+        terms: [sampleMember.id],
+        requirement: `raise the ${words} threshold`,
+      }),
+  ],
   ["get_impact(member)", () => q.getImpact({ target: sampleMember.id })],
   ["get_impact(rule)", () => q.getImpact({ target: rules[7].id })],
   ["get_artifact", () => q.getArtifact({ id: rules[3].id })],
@@ -77,19 +103,46 @@ for (const [name, fn] of calls) {
   const p50 = samples[49];
   const p95 = samples[94];
   worst = Math.max(worst, p95);
-  console.log(`  ${name.padEnd(24)} p50 ${p50.toFixed(1).padStart(6)}  p95 ${p95.toFixed(1).padStart(6)}  response ${(bytes / 1024).toFixed(1)} KB`);
+  console.log(
+    `  ${name.padEnd(24)} p50 ${p50.toFixed(1).padStart(6)}  p95 ${p95.toFixed(1).padStart(6)}  response ${(bytes / 1024).toFixed(1)} KB`,
+  );
 }
 const [gates, gatesMs] = time(() => runGates(q));
-console.log(`\nrulebase check: ${Math.round(gatesMs)} ms, ${gates.filter((gate) => gate.pass).length}/${gates.length} gates pass`);
-for (const gate of gates) if (!gate.pass) console.log(`  FAIL ${gate.id}: ${gate.detail} ${(gate.failures ?? []).slice(0, 3).join("; ")}`);
+console.log(
+  `\nrulebase check: ${Math.round(gatesMs)} ms, ${gates.filter((gate) => gate.pass).length}/${gates.length} gates pass`,
+);
+for (const gate of gates)
+  if (!gate.pass)
+    console.log(
+      `  FAIL ${gate.id}: ${gate.detail} ${(gate.failures ?? []).slice(0, 3).join("; ")}`,
+    );
 console.log(`cache file: ${(warm.store.sizeBytes() / 1024 / 1024).toFixed(1)} MB · RSS ${mb()} MB`);
 for (let i = 0; i < 5; i++) warm.rebuild();
-console.log(`cache after 5 more identical reindexes: ${(warm.store.sizeBytes() / 1024 / 1024).toFixed(1)} MB`);
+console.log(
+  `cache after 5 more identical reindexes: ${(warm.store.sizeBytes() / 1024 / 1024).toFixed(1)} MB`,
+);
 warm.close();
-const child = spawnSync(process.execPath, ["--expose-gc", "--experimental-strip-types", "--no-warnings", path.join(import.meta.dirname, "memory.ts"), workspace, cacheFile], { encoding: "utf8" });
-const fresh = JSON.parse(child.stdout.trim().split("\n").pop() ?? "{}") as { startMs: number; rssMb: number; heapMb: number };
+const child = spawnSync(
+  process.execPath,
+  [
+    "--expose-gc",
+    "--experimental-strip-types",
+    "--no-warnings",
+    path.join(import.meta.dirname, "memory.ts"),
+    workspace,
+    cacheFile,
+  ],
+  { encoding: "utf8" },
+);
+const fresh = JSON.parse(child.stdout.trim().split("\n").pop() ?? "{}") as {
+  startMs: number;
+  rssMb: number;
+  heapMb: number;
+};
 const rss = fresh.rssMb;
-console.log(`fresh server process: warm start ${fresh.startMs} ms · RSS ${fresh.rssMb} MB · heap ${fresh.heapMb} MB`);
+console.log(
+  `fresh server process: warm start ${fresh.startMs} ms · RSS ${fresh.rssMb} MB · heap ${fresh.heapMb} MB`,
+);
 
 const targets = [
   ["full reindex < 30 s", fullMs < 30_000],

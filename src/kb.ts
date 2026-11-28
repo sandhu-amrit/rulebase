@@ -4,7 +4,16 @@
  */
 import { BAL_WORDS, stripArticles, tokenizeBal, type PhraseMatch } from "./bal.ts";
 import type { Linked, Use } from "./link.ts";
-import type { Artifact, BomClass, BomMember, Phrase, ProjectInfo, TableCell, TableRow, Warning } from "./model.ts";
+import type {
+  Artifact,
+  BomClass,
+  BomMember,
+  Phrase,
+  ProjectInfo,
+  TableCell,
+  TableRow,
+  Warning,
+} from "./model.ts";
 import { RULE_KINDS } from "./model.ts";
 import { renderCell } from "./parse/artifacts.ts";
 import { typeCategory } from "./parse/bom.ts";
@@ -51,7 +60,18 @@ export interface ArtifactSummary {
   path: string;
 }
 
-const COMPARISON = ["less than", "more than", "greater than", "at least", "at most", "between", "below", "above", "under", "over"];
+const COMPARISON = [
+  "less than",
+  "more than",
+  "greater than",
+  "at least",
+  "at most",
+  "between",
+  "below",
+  "above",
+  "under",
+  "over",
+];
 
 export class KnowledgeBase {
   readonly model: Linked;
@@ -60,8 +80,14 @@ export class KnowledgeBase {
   stale?: string;
   private readonly ruleSearch: SearchIndex;
   private readonly termSearch: SearchIndex;
-  private readonly selectionByPackage = new Map<string, { flow: string; task: string; reason: string }[]>();
-  private readonly selectionByRule = new Map<string, { flow: string; task: string; reason: string }[]>();
+  private readonly selectionByPackage = new Map<
+    string,
+    { flow: string; task: string; reason: string }[]
+  >();
+  private readonly selectionByRule = new Map<
+    string,
+    { flow: string; task: string; reason: string }[]
+  >();
   private readonly flowsRunBy = new Map<string, string[]>();
   private readonly subflowParents = new Map<string, string[]>();
   private readonly derivedTo = new Map<string, string[]>();
@@ -72,7 +98,9 @@ export class KnowledgeBase {
   constructor(model: Linked, meta: IndexMeta) {
     this.model = model;
     this.meta = meta;
-    const rules = [...model.artifacts.values()].filter((item) => RULE_KINDS.includes(item.type as never) || item.type === "ruleflow");
+    const rules = [...model.artifacts.values()].filter(
+      (item) => RULE_KINDS.includes(item.type as never) || item.type === "ruleflow",
+    );
     this.ruleSearch = new SearchIndex(
       rules.map((item) => ({
         key: item.id,
@@ -99,7 +127,9 @@ export class KnowledgeBase {
       });
     }
     // Members with no verbalization exist in the BOM but cannot be used in BAL yet.
-    const verbalized = new Set([...model.phrases.values()].map((phrase) => phrase.memberId).filter(Boolean));
+    const verbalized = new Set(
+      [...model.phrases.values()].map((phrase) => phrase.memberId).filter(Boolean),
+    );
     for (const member of model.members.values()) {
       if (verbalized.has(member.id) || member.kind === "constructor") continue;
       termDocs.push({
@@ -112,11 +142,20 @@ export class KnowledgeBase {
       });
     }
     for (const [index, entry] of model.glossary.entries()) {
-      termDocs.push({ key: `glossary:${index}`, fields: [{ text: entry.phrase, weight: 3 }, { text: entry.note ?? "", weight: 1 }] });
+      termDocs.push({
+        key: `glossary:${index}`,
+        fields: [
+          { text: entry.phrase, weight: 3 },
+          { text: entry.note ?? "", weight: 1 },
+        ],
+      });
     }
     this.termSearch = new SearchIndex(termDocs);
     for (const item of rules) {
-      for (const key of new Set([normalize(item.name), normalize(`${item.package} ${item.name}`)])) {
+      for (const key of new Set([
+        normalize(item.name),
+        normalize(`${item.package} ${item.name}`),
+      ])) {
         const list = this.rulesByNormalizedName.get(key) ?? [];
         list.push(item.id);
         this.rulesByNormalizedName.set(key, list);
@@ -138,7 +177,9 @@ export class KnowledgeBase {
         const key = edge.to.startsWith("pkg:") ? edge.to.slice(4) : edge.to;
         const list = map.get(key) ?? [];
         // The reason states the full path condition (every path from the start), not just the last transition.
-        const ambiguous = edge.detail?.includes("ambiguous rule name") ? `; ${edge.detail.slice(edge.detail.indexOf("ambiguous rule name"))}` : "";
+        const ambiguous = edge.detail?.includes("ambiguous rule name")
+          ? `; ${edge.detail.slice(edge.detail.indexOf("ambiguous rule name"))}`
+          : "";
         list.push({ flow, task, reason: `${this.taskReason(flow, task)}${ambiguous}` });
         map.set(key, list);
       }
@@ -177,7 +218,13 @@ export class KnowledgeBase {
     const out: { flow: string; task: string; reason: string }[] = [];
     let current = pkg;
     while (current) {
-      out.push(...(this.selectionByPackage.get(current) ?? []).map((item) => (current === pkg ? item : { ...item, reason: `${item.reason} (selects parent package '${current}')` })));
+      out.push(
+        ...(this.selectionByPackage.get(current) ?? []).map((item) =>
+          current === pkg
+            ? item
+            : { ...item, reason: `${item.reason} (selects parent package '${current}')` },
+        ),
+      );
       current = current.includes(".") ? current.slice(0, current.lastIndexOf(".")) : "";
     }
     return out;
@@ -189,7 +236,9 @@ export class KnowledgeBase {
   }
 
   rules(): Artifact[] {
-    return [...this.model.artifacts.values()].filter((item) => RULE_KINDS.includes(item.type as never));
+    return [...this.model.artifacts.values()].filter((item) =>
+      RULE_KINDS.includes(item.type as never),
+    );
   }
 
   summary(artifact: Artifact): ArtifactSummary {
@@ -228,7 +277,8 @@ export class KnowledgeBase {
     if (pkg) {
       // `eligibility` may be a package and also a rule's name: say so instead of picking one.
       const sameName = all.filter((item) => item.type !== "package" && item.name === ref);
-      if (sameName.length) return { ambiguous: [pkg, ...sameName].map((item) => this.summary(item)) };
+      if (sameName.length)
+        return { ambiguous: [pkg, ...sameName].map((item) => this.summary(item)) };
       return { artifact: pkg };
     }
     const qualified = all.filter((item) => item.package && `${item.package}.${item.name}` === ref);
@@ -272,7 +322,8 @@ export class KnowledgeBase {
   listDecisionServices() {
     const warnings = this.model.warnings;
     const counts: Record<string, number> = {};
-    for (const artifact of this.model.artifacts.values()) counts[artifact.type] = (counts[artifact.type] ?? 0) + 1;
+    for (const artifact of this.model.artifacts.values())
+      counts[artifact.type] = (counts[artifact.type] ?? 0) + 1;
     return {
       decisionService: this.meta.decisionService,
       workspace: this.meta.workspace,
@@ -288,13 +339,18 @@ export class KnowledgeBase {
         members: this.model.members.size,
         virtualMembers: [...this.model.members.values()].filter((member) => member.virtual).length,
         phrases: this.model.phrases.size,
-        rulesetParameters: new Set([...this.model.variables.values()].map((variable) => variable.name)).size,
+        rulesetParameters: new Set(
+          [...this.model.variables.values()].map((variable) => variable.name),
+        ).size,
         glossaryEntries: this.model.glossary.length,
       },
       locale: this.model.locale,
       notIndexed: this.meta.skipped,
       warnings: {
-        errors: warnings.filter((warning) => warning.severity === "error").map((warning) => `${warning.path}: ${warning.message}`).slice(0, 50),
+        errors: warnings
+          .filter((warning) => warning.severity === "error")
+          .map((warning) => `${warning.path}: ${warning.message}`)
+          .slice(0, 50),
         infoCount: warnings.filter((warning) => warning.severity === "info").length,
       },
       checked: this.checked(),
@@ -325,7 +381,11 @@ export class KnowledgeBase {
     }
     const klass = this.resolveClass(input.class);
     if (!klass) {
-      return { error: `No class '${input.class}'.`, suggestions: this.classSuggestions(input.class), checked: this.checked() };
+      return {
+        error: `No class '${input.class}'.`,
+        suggestions: this.classSuggestions(input.class),
+        checked: this.checked(),
+      };
     }
     return {
       class: klass.fqn,
@@ -345,7 +405,10 @@ export class KnowledgeBase {
         ...(member.domain ? { domain: member.domain } : {}),
         ...(inheritedFrom ? { inheritedFrom } : {}),
         ...(member.documentation ? { documentation: member.documentation } : {}),
-        phrases: this.phrasesOfMember(member.id).map((phrase) => ({ kind: phrase.kind, text: phrase.text })),
+        phrases: this.phrasesOfMember(member.id).map((phrase) => ({
+          kind: phrase.kind,
+          text: phrase.text,
+        })),
         ...(this.phrasesOfMember(member.id).length ? {} : { verbalized: false }),
       })),
       checked: this.checked(),
@@ -365,7 +428,13 @@ export class KnowledgeBase {
   private classSuggestions(ref: string): string[] {
     const lower = ref.toLowerCase();
     return [...this.model.classes.values()]
-      .map((klass) => ({ fqn: klass.fqn, d: Math.min(editDistance(lower, klass.name.toLowerCase(), 3), editDistance(lower, (klass.label ?? "").toLowerCase(), 3)) }))
+      .map((klass) => ({
+        fqn: klass.fqn,
+        d: Math.min(
+          editDistance(lower, klass.name.toLowerCase(), 3),
+          editDistance(lower, (klass.label ?? "").toLowerCase(), 3),
+        ),
+      }))
       .filter((item) => item.d <= 3 || item.fqn.toLowerCase().includes(lower))
       .sort((a, b) => a.d - b.d)
       .slice(0, 5)
@@ -380,10 +449,17 @@ export class KnowledgeBase {
     const seen = new Set<string>();
     const normQuery = normalize(input.query);
     for (const [index, entry] of this.model.glossary.entries()) {
-      if (normQuery.includes(normalize(entry.phrase)) || normalize(entry.phrase).includes(normQuery)) {
+      if (
+        normQuery.includes(normalize(entry.phrase)) ||
+        normalize(entry.phrase).includes(normQuery)
+      ) {
         if (!seen.has(`glossary:${index}`)) {
           seen.add(`glossary:${index}`);
-          glossary.push({ phrase: entry.phrase, means: entry.means, ...(entry.note ? { note: entry.note } : {}) });
+          glossary.push({
+            phrase: entry.phrase,
+            means: entry.means,
+            ...(entry.note ? { note: entry.note } : {}),
+          });
         }
       }
     }
@@ -392,7 +468,11 @@ export class KnowledgeBase {
       seen.add(result.key);
       if (result.key.startsWith("glossary:")) {
         const entry = this.model.glossary[Number(result.key.slice(9))];
-        glossary.push({ phrase: entry.phrase, means: entry.means, ...(entry.note ? { note: entry.note } : {}) });
+        glossary.push({
+          phrase: entry.phrase,
+          means: entry.means,
+          ...(entry.note ? { note: entry.note } : {}),
+        });
         continue;
       }
       if (result.key.startsWith("member:")) {
@@ -405,7 +485,9 @@ export class KnowledgeBase {
           type: member.type,
           ...(member.virtual ? { virtual: true } : {}),
           note: "in the BOM but has no verbalization, so rules cannot use it yet",
-          matched: result.matched.filter((item) => item.query !== item.term).map((item) => `${item.query}→${item.term}`),
+          matched: result.matched
+            .filter((item) => item.query !== item.term)
+            .map((item) => `${item.query}→${item.term}`),
           score: Math.round(result.score * 100) / 100,
         });
         if (terms.length >= limit) break;
@@ -420,7 +502,9 @@ export class KnowledgeBase {
         ...(member ? { member: member.id, type: member.type } : { class: phrase.owner }),
         ...(phrase.virtual ? { virtual: true } : {}),
         ...(member?.documentation ? { documentation: member.documentation } : {}),
-        matched: result.matched.filter((item) => item.query !== item.term).map((item) => `${item.query}→${item.term}`),
+        matched: result.matched
+          .filter((item) => item.query !== item.term)
+          .map((item) => `${item.query}→${item.term}`),
         score: Math.round(result.score * 100) / 100,
       });
       if (terms.length >= limit) break;
@@ -432,7 +516,9 @@ export class KnowledgeBase {
       terms,
       ...(terms.length || glossary.length
         ? {}
-        : { note: "No term matched. Try other words, or browse with list_terms: if a term is not listed there, it is not in the vocabulary." }),
+        : {
+            note: "No term matched. Try other words, or browse with list_terms: if a term is not listed there, it is not in the vocabulary.",
+          }),
       checked: this.checked(),
     };
   }
@@ -454,7 +540,8 @@ export class KnowledgeBase {
       for (const pos of match.literals) covered.add(pos);
       for (const slot of match.slots) {
         if (!slot) continue;
-        if (slot.typedBy === "concept" || slot.typedBy === "variable") for (let i = slot.from; i < slot.to; i++) covered.add(i);
+        if (slot.typedBy === "concept" || slot.typedBy === "variable")
+          for (let i = slot.from; i < slot.to; i++) covered.add(i);
       }
       const phrase = match.compiled.phrase;
       if (phrase.kind === "concept") continue;
@@ -470,7 +557,8 @@ export class KnowledgeBase {
       typeErrors.push(...this.slotTypeErrors(match));
       if (!match.resolved) {
         const subject = match.slots[phrase.slots.findIndex((slot) => slot.name === "this")];
-        if (subject && !subject.type) untyped.push(`'${subject.text}' in "${phrase.text}" could not be typed`);
+        if (subject && !subject.type)
+          untyped.push(`'${subject.text}' in "${phrase.text}" could not be typed`);
       }
     }
     typeErrors.push(...this.comparisonErrors(tokens, matches));
@@ -488,28 +576,62 @@ export class KnowledgeBase {
     });
     // Keyword-like nouns used as if they were members (`the count of the borrower`, `the value of the loan`):
     // they are BAL words, but here nothing in the vocabulary backs them.
-    const NOUNS = new Set(["value", "values", "date", "time", "count", "size", "variable", "percent", "list", "number", "sum", "average", "minimum", "maximum"]);
+    const NOUNS = new Set([
+      "value",
+      "values",
+      "date",
+      "time",
+      "count",
+      "size",
+      "variable",
+      "percent",
+      "list",
+      "number",
+      "sum",
+      "average",
+      "minimum",
+      "maximum",
+    ]);
     tokens.forEach((token, index) => {
       if (covered.has(index) || token.kind !== "word" || !NOUNS.has(token.value)) return;
       const next = tokens[index + 1];
       if (!(next?.kind === "word" && (next.value === "of" || next.value === "de"))) return;
       // `the number of <items> in ...` and other aggregates over a collection are BAL; a single object is not.
       const rest = tokens.slice(index + 2);
-      if (rest.some((item) => item.kind === "word" && (item.value === "in" || item.value === "dans" || item.value === "where"))) return;
+      if (
+        rest.some(
+          (item) =>
+            item.kind === "word" &&
+            (item.value === "in" || item.value === "dans" || item.value === "where"),
+        )
+      )
+        return;
       unknownWords.push(token.value);
     });
     const nonConcept = matches.filter((match) => match.compiled.phrase.kind !== "concept");
     // At least one real term (navigation, action or parameter) must be used: a concept name alone is not a condition.
-    const ok = !unknownWords.length && !unknownVariables.length && !typeErrors.length && nonConcept.length > 0;
+    const ok =
+      !unknownWords.length &&
+      !unknownVariables.length &&
+      !typeErrors.length &&
+      nonConcept.length > 0;
     return {
       phrase: text,
       ok,
       terms,
-      ...(unknownWords.length ? { unknownWords: [...new Set(unknownWords)], suggestions: this.suggestFor(unknownWords) } : {}),
+      ...(unknownWords.length
+        ? { unknownWords: [...new Set(unknownWords)], suggestions: this.suggestFor(unknownWords) }
+        : {}),
       ...(unknownVariables.length ? { unknownVariables } : {}),
       ...(typeErrors.length ? { typeErrors } : {}),
       ...(untyped.length ? { untyped } : {}),
-      ...(nonConcept.length ? {} : { note: matches.length ? "Only a class name was found; no member of it is used, so this is not a valid condition or action." : "No vocabulary term found in this phrase." }),
+      ...(nonConcept.length
+        ? {}
+        : {
+            note: matches.length
+              ? "Only a class name was found; no member of it is used, so this is not a valid condition or action."
+              : "No vocabulary term found in this phrase.",
+          }),
     };
   }
 
@@ -521,38 +643,54 @@ export class KnowledgeBase {
       if (!slot?.type || !expected.type) return;
       if (expected.name === "this") {
         if (!this.model.env.isAssignable(slot.type, expected.type) && slot.typedBy !== "literal") {
-          errors.push(`"${phrase.text}" belongs to ${this.labelOf(expected.type)}, but '${slot.text}' is ${this.describeType(slot.type)}`);
+          errors.push(
+            `"${phrase.text}" belongs to ${this.labelOf(expected.type)}, but '${slot.text}' is ${this.describeType(slot.type)}`,
+          );
         } else if (slot.typedBy === "literal") {
-          errors.push(`"${phrase.text}" needs ${this.labelOf(expected.type)}, but got the literal ${slot.text}`);
+          errors.push(
+            `"${phrase.text}" needs ${this.labelOf(expected.type)}, but got the literal ${slot.text}`,
+          );
         }
         return;
       }
       const want = typeCategory(expected.type);
-      const got = slot.type === "number" || slot.type === "string" ? slot.type : typeCategory(slot.type);
+      const got =
+        slot.type === "number" || slot.type === "string" ? slot.type : typeCategory(slot.type);
       if (want === "unknown" || got === "unknown") return;
       if (want === "object" && got === "object") {
         if (!this.model.env.isAssignable(slot.type, expected.type)) {
-          errors.push(`"${phrase.text}" expects ${this.describeType(expected.type)} for <${expected.name}>, but '${slot.text}' is ${this.describeType(slot.type)}`);
+          errors.push(
+            `"${phrase.text}" expects ${this.describeType(expected.type)} for <${expected.name}>, but '${slot.text}' is ${this.describeType(slot.type)}`,
+          );
         }
         return;
       }
       if (want !== got && !(want === "collection" || got === "collection")) {
-        errors.push(`"${phrase.text}" expects ${want} for <${expected.name}>, but '${slot.text}' is ${got}`);
+        errors.push(
+          `"${phrase.text}" expects ${want} for <${expected.name}>, but '${slot.text}' is ${got}`,
+        );
       }
     });
     return errors;
   }
 
   /** `<number navigation> is less than "abc"` and similar. */
-  private comparisonErrors(tokens: ReturnType<typeof tokenizeBal>, matches: PhraseMatch[]): string[] {
+  private comparisonErrors(
+    tokens: ReturnType<typeof tokenizeBal>,
+    matches: PhraseMatch[],
+  ): string[] {
     const errors: string[] = [];
-    const words = tokens.map((token) => (token.kind === "word" ? token.value : `\u0000${token.kind}`));
+    const words = tokens.map((token) =>
+      token.kind === "word" ? token.value : `\u0000${token.kind}`,
+    );
     for (const match of matches) {
       const phrase = match.compiled.phrase;
       if (phrase.kind !== "navigation" || !phrase.type) continue;
       const category = typeCategory(phrase.type);
       const after = words.slice(match.to, match.to + 4).join(" ");
-      const op = COMPARISON.find((item) => after.startsWith(`is ${item}`) || after.startsWith(item));
+      const op = COMPARISON.find(
+        (item) => after.startsWith(`is ${item}`) || after.startsWith(item),
+      );
       if (!op) continue;
       const opLen = op.split(" ").length + (after.startsWith("is ") ? 1 : 0);
       const value = tokens[match.to + opLen];
@@ -577,7 +715,11 @@ export class KnowledgeBase {
     for (const word of new Set(words)) {
       const hits = this.termSearch.search(word, { limit: 3 });
       const texts = hits
-        .map((hit) => (hit.key.startsWith("phrase:") ? this.model.phrases.get(hit.key.slice(7))?.text : this.model.glossary[Number(hit.key.slice(9))]?.phrase))
+        .map((hit) =>
+          hit.key.startsWith("phrase:")
+            ? this.model.phrases.get(hit.key.slice(7))?.text
+            : this.model.glossary[Number(hit.key.slice(9))]?.phrase,
+        )
         .filter((item): item is string => Boolean(item));
       if (texts.length) out[word] = texts;
     }
@@ -596,44 +738,89 @@ export class KnowledgeBase {
     if (this.model.classes.has(ref)) return { targets: [ref], via: "class" };
     // A bare BOM member name (`yearlyIncome`) of a verbalized member
     if (/^[A-Za-z_$][\w$]*$/.test(ref) && /[A-Z_]/.test(ref)) {
-      const byName = [...this.model.members.values()].filter((member) => member.name === ref && this.phrasesByMember.has(member.id)).map((member) => member.id);
-      if (byName.length) return { targets: byName, via: byName.length > 1 ? "member name (several classes have it)" : "member name" };
+      const byName = [...this.model.members.values()]
+        .filter((member) => member.name === ref && this.phrasesByMember.has(member.id))
+        .map((member) => member.id);
+      if (byName.length)
+        return {
+          targets: byName,
+          via: byName.length > 1 ? "member name (several classes have it)" : "member name",
+        };
     }
     const phrase = this.model.phrases.get(ref);
     if (phrase) return { targets: [phrase.memberId ?? phrase.owner], via: "phrase id" };
     const variable = this.model.variables.get(normalize(ref).replace(/^(the|a|an) /, ""));
     if (variable) return { targets: [`var:${variable.name}`], via: "ruleset parameter" };
-    const glossary = this.model.glossary.find((entry) => normalize(entry.phrase) === normalize(ref));
+    const glossary = this.model.glossary.find(
+      (entry) => normalize(entry.phrase) === normalize(ref),
+    );
     if (glossary) {
       const targets = glossary.means.flatMap((item) => {
         const hit = this.resolveTerm(item);
         return hit && "targets" in hit ? hit.targets : [];
       });
-      if (targets.length) return { targets: [...new Set(targets)], via: `glossary '${glossary.phrase}'` };
+      if (targets.length)
+        return { targets: [...new Set(targets)], via: `glossary '${glossary.phrase}'` };
     }
     const tokens = tokenizeBal(ref);
-    const matches = this.model.matcher.match(tokens, this.model.env).filter((match) => match.compiled.phrase.kind !== "concept" || matchesAll(match, tokens.length));
+    const matches = this.model.matcher
+      .match(tokens, this.model.env)
+      .filter(
+        (match) => match.compiled.phrase.kind !== "concept" || matchesAll(match, tokens.length),
+      );
     if (matches.length) {
       const check = this.validateOne(ref);
       const problems = [
         ...(check.unknownWords?.length ? [`unknown words: ${check.unknownWords.join(", ")}`] : []),
-        ...(check.unknownVariables?.length ? [`unknown variables: ${check.unknownVariables.join(", ")}`] : []),
+        ...(check.unknownVariables?.length
+          ? [`unknown variables: ${check.unknownVariables.join(", ")}`]
+          : []),
         ...(check.typeErrors ?? []),
       ];
       if (problems.length) return { why: problems.join("; ") };
-      const resolved = matches.filter((match) => match.resolved && match.compiled.phrase.kind !== "concept");
-      const chosen = resolved.length ? resolved : matches.filter((match) => match.compiled.phrase.kind !== "concept");
+      const resolved = matches.filter(
+        (match) => match.resolved && match.compiled.phrase.kind !== "concept",
+      );
+      const chosen = resolved.length
+        ? resolved
+        : matches.filter((match) => match.compiled.phrase.kind !== "concept");
       if (chosen.length) {
-        return { targets: [...new Set(chosen.map((match) => match.compiled.phrase.memberId ?? match.compiled.phrase.owner))], via: resolved.length ? "phrase text" : "phrase text (subject not typed)" };
+        return {
+          targets: [
+            ...new Set(
+              chosen.map((match) => match.compiled.phrase.memberId ?? match.compiled.phrase.owner),
+            ),
+          ],
+          via: resolved.length ? "phrase text" : "phrase text (subject not typed)",
+        };
       }
-      return { targets: [...new Set(matches.map((match) => match.compiled.phrase.owner))], via: "concept" };
+      return {
+        targets: [...new Set(matches.map((match) => match.compiled.phrase.owner))],
+        via: "concept",
+      };
     }
     // A bare term without its subject ("credit score"): every member verbalized with those words.
     const bare = stripArticles(normalize(ref));
     const members = [...this.model.phrases.values()]
-      .filter((phrase) => phrase.memberId && phrase.kind === "navigation" && stripArticles(normalize(phrase.template.replace(/\{(this|\d+)\}/g, " ").replace(/\bof\s*$/, "").replace(/[{}]/g, " "))) === bare)
+      .filter(
+        (phrase) =>
+          phrase.memberId &&
+          phrase.kind === "navigation" &&
+          stripArticles(
+            normalize(
+              phrase.template
+                .replace(/\{(this|\d+)\}/g, " ")
+                .replace(/\bof\s*$/, "")
+                .replace(/[{}]/g, " "),
+            ),
+          ) === bare,
+      )
       .map((phrase) => phrase.memberId as string);
-    if (members.length) return { targets: [...new Set(members)], via: members.length > 1 ? "term words (several classes have it)" : "term words" };
+    if (members.length)
+      return {
+        targets: [...new Set(members)],
+        via: members.length > 1 ? "term words (several classes have it)" : "term words",
+      };
     return null;
   }
 
@@ -644,7 +831,8 @@ export class KnowledgeBase {
     for (const member of this.model.members.values()) {
       if (member.kind === "constructor" || this.phrasesByMember.has(member.id)) continue;
       const spoken = normalize(splitIdentifier(member.name));
-      if (term === member.id || term === member.name || spoken === words || spoken === head) return member.id;
+      if (term === member.id || term === member.name || spoken === words || spoken === head)
+        return member.id;
     }
     return undefined;
   }
@@ -667,9 +855,15 @@ export class KnowledgeBase {
   }
 
   /** Ruleflow tasks that run a rule, and the operations that run those flows. */
-  runPath(artifact: Artifact): { selectedBy: { flow: string; task: string; reason: string }[]; operations: string[] } {
+  runPath(artifact: Artifact): {
+    selectedBy: { flow: string; task: string; reason: string }[];
+    operations: string[];
+  } {
     // A task that selects a parent package selects its sub-packages too.
-    const selectedBy = [...(this.selectionByRule.get(artifact.id) ?? []), ...(artifact.package ? this.tasksSelectingPackage(artifact.package) : [])];
+    const selectedBy = [
+      ...(this.selectionByRule.get(artifact.id) ?? []),
+      ...(artifact.package ? this.tasksSelectingPackage(artifact.package) : []),
+    ];
     const operations = new Set<string>();
     const flows = new Set(selectedBy.map((item) => item.flow));
     const queue = [...flows];
@@ -689,7 +883,10 @@ export class KnowledgeBase {
   /** Decision operations without a ruleflow: they run every rule of the ruleset. */
   private operationsRunningAll(): Artifact[] {
     return [...this.model.artifacts.values()].filter(
-      (item) => item.type === "decisionOperation" && !item.operation?.ruleflowName && !item.operation?.ruleflowUuid,
+      (item) =>
+        item.type === "decisionOperation" &&
+        !item.operation?.ruleflowName &&
+        !item.operation?.ruleflowUuid,
     );
   }
 
@@ -702,18 +899,28 @@ export class KnowledgeBase {
    * (recursively). Each context carries the chain of calling tasks, the conditions under which each
    * calling task is reached, whether every step of the chain is reachable, and the operations at its top.
    */
-  flowRunContexts(flowId: string, seen = new Set<string>()): { via: string[]; conditions: string[]; reachable: boolean; operations: string[] }[] {
+  flowRunContexts(
+    flowId: string,
+    seen = new Set<string>(),
+  ): { via: string[]; conditions: string[]; reachable: boolean; operations: string[] }[] {
     if (seen.has(flowId)) return [];
     const nextSeen = new Set(seen).add(flowId);
-    const contexts: { via: string[]; conditions: string[]; reachable: boolean; operations: string[] }[] = [];
+    const contexts: {
+      via: string[];
+      conditions: string[];
+      reachable: boolean;
+      operations: string[];
+    }[] = [];
     const direct = this.flowsRunBy.get(flowId) ?? [];
-    if (direct.length) contexts.push({ via: [], conditions: [], reachable: true, operations: direct });
+    if (direct.length)
+      contexts.push({ via: [], conditions: [], reachable: true, operations: direct });
     for (const edge of this.model.edges) {
       if (edge.type !== "SUBFLOW" || edge.to !== flowId) continue;
       const [parent, task] = edge.from.split("#");
       const analysis = this.flows.get(parent)?.tasks.get(task);
       const reachable = analysis?.reachable ?? true;
-      const condition = analysis && !analysis.always && analysis.reachable ? describePaths(analysis) : undefined;
+      const condition =
+        analysis && !analysis.always && analysis.reachable ? describePaths(analysis) : undefined;
       const step = `ruleflow '${this.model.artifacts.get(parent)?.name ?? parent}' task '${task}'`;
       for (const outer of this.flowRunContexts(parent, nextSeen)) {
         contexts.push({
@@ -724,7 +931,13 @@ export class KnowledgeBase {
         });
       }
       // A parent that nothing runs still explains the chain; it just has no operation.
-      if (!this.flowRunContexts(parent, nextSeen).length) contexts.push({ via: [step], conditions: condition ? [condition] : [], reachable, operations: [] });
+      if (!this.flowRunContexts(parent, nextSeen).length)
+        contexts.push({
+          via: [step],
+          conditions: condition ? [condition] : [],
+          reachable,
+          operations: [],
+        });
     }
     return contexts;
   }
@@ -743,7 +956,9 @@ export class KnowledgeBase {
     for (const item of path.selectedBy) {
       const flowName = this.model.artifacts.get(item.flow)?.name ?? item.flow;
       if (!this.taskReachable(item.flow, item.task)) {
-        lines.push(`selected by ruleflow '${flowName}' task '${item.task}', which no path from the start reaches`);
+        lines.push(
+          `selected by ruleflow '${flowName}' task '${item.task}', which no path from the start reaches`,
+        );
         continue;
       }
       const contexts = this.flowRunContexts(item.flow);
@@ -763,14 +978,20 @@ export class KnowledgeBase {
           lines.push(`${item.reason}; called from ${chain}, which no path from its start reaches`);
           continue;
         }
-        const when = context.conditions.length ? `; only when the caller is reached: ${context.conditions.join(" and ")}` : "";
-        const ops = context.operations.length ? "" : "; no decision operation runs the calling ruleflow";
+        const when = context.conditions.length
+          ? `; only when the caller is reached: ${context.conditions.join(" and ")}`
+          : "";
+        const ops = context.operations.length
+          ? ""
+          : "; no decision operation runs the calling ruleflow";
         lines.push(`${item.reason}; called as a subflow from ${chain}${when}${ops}`);
         if (context.operations.length) runs = true;
       }
     }
     const allOps = this.operationsRunningAll();
-    const anyOperation = [...this.model.artifacts.values()].some((item) => item.type === "decisionOperation");
+    const anyOperation = [...this.model.artifacts.values()].some(
+      (item) => item.type === "decisionOperation",
+    );
     const anyFlow = [...this.model.artifacts.values()].some((item) => item.type === "ruleflow");
     if (path.selectedBy.length && !anyContext && anyOperation && !runs) {
       lines.push("but no decision operation runs that ruleflow");
@@ -789,7 +1010,10 @@ export class KnowledgeBase {
         }) || !anyFlow;
       if (!anyFlow) lines.push("no ruleflow or operation: every rule in the ruleset runs");
     }
-    if (!runs && !path.selectedBy.length) lines.push("not selected by any ruleflow task, and no operation runs all rules: this rule does not run");
+    if (!runs && !path.selectedBy.length)
+      lines.push(
+        "not selected by any ruleflow task, and no operation runs all rules: this rule does not run",
+      );
     return { runs, lines };
   }
 
@@ -809,7 +1033,10 @@ export class KnowledgeBase {
         gaps.push({
           term,
           ...(resolved ? { why: resolved.why } : {}),
-          closest: this.termSearch.search(term, { limit: 3 }).map((hit) => this.model.phrases.get(hit.key.slice(7))?.text ?? "").filter(Boolean),
+          closest: this.termSearch
+            .search(term, { limit: 3 })
+            .map((hit) => this.model.phrases.get(hit.key.slice(7))?.text ?? "")
+            .filter(Boolean),
         });
         continue;
       }
@@ -827,14 +1054,31 @@ export class KnowledgeBase {
       }
     }
     // Score every rule by how many requested terms it uses, where, and how surely.
-    const scores = new Map<string, { score: number; terms: Set<string>; reasons: string[]; uses: Use[] }>();
+    const scores = new Map<
+      string,
+      { score: number; terms: Set<string>; reasons: string[]; uses: Use[] }
+    >();
     for (const [target, info] of targetInfo) {
       for (const { artifactId, use } of this.model.usedBy.get(target) ?? []) {
         const artifact = this.model.artifacts.get(artifactId);
         // Rules, and ruleflows: a threshold in a transition condition or task filter is a decision point too.
-        if (!artifact || !(RULE_KINDS.includes(artifact.type as never) || artifact.type === "ruleflow")) continue;
-        const entry = scores.get(artifactId) ?? { score: 0, terms: new Set<string>(), reasons: [], uses: [] };
-        const decisive = use.where === "conditions" || use.where.startsWith("column:") || use.where === "preconditions" || use.where.startsWith("transition:") || use.where.startsWith("task:");
+        if (
+          !artifact ||
+          !(RULE_KINDS.includes(artifact.type as never) || artifact.type === "ruleflow")
+        )
+          continue;
+        const entry = scores.get(artifactId) ?? {
+          score: 0,
+          terms: new Set<string>(),
+          reasons: [],
+          uses: [],
+        };
+        const decisive =
+          use.where === "conditions" ||
+          use.where.startsWith("column:") ||
+          use.where === "preconditions" ||
+          use.where.startsWith("transition:") ||
+          use.where.startsWith("task:");
         const weight = (decisive ? 1 : 0.6) * (use.resolved ? 1 : 0.5) * (info.via ? 0.8 : 1);
         for (const term of info.terms) {
           if (!entry.terms.has(term)) entry.score += 2;
@@ -842,7 +1086,9 @@ export class KnowledgeBase {
         }
         entry.score += weight;
         entry.uses.push(use);
-        entry.reasons.push(`${describeWhere(use.where, artifact)} uses "${use.text}"${use.resolved ? "" : " (subject not typed)"}${info.via ? `; ${info.via}` : ""}`);
+        entry.reasons.push(
+          `${describeWhere(use.where, artifact)} uses "${use.text}"${use.resolved ? "" : " (subject not typed)"}${info.via ? `; ${info.via}` : ""}`,
+        );
         scores.set(artifactId, entry);
       }
     }
@@ -852,24 +1098,32 @@ export class KnowledgeBase {
         if (entry) entry.score += Math.min(1, hit.score / 10);
       }
     }
-    const ranked = [...scores.entries()].sort((a, b) => b[1].score - a[1].score || a[0].localeCompare(b[0]));
+    const ranked = [...scores.entries()].sort(
+      (a, b) => b[1].score - a[1].score || a[0].localeCompare(b[0]),
+    );
     const modify = ranked.slice(0, limit).map(([id, entry]) => {
       const artifact = this.model.artifacts.get(id) as Artifact;
       if (artifact.type === "ruleflow") {
-        const ops = (this.flowsRunBy.get(artifact.id) ?? []).map((op) => this.model.artifacts.get(op)?.name ?? op);
+        const ops = (this.flowsRunBy.get(artifact.id) ?? []).map(
+          (op) => this.model.artifacts.get(op)?.name ?? op,
+        );
         return {
           ...this.summary(artifact),
           coverage: `${entry.terms.size}/${requested.length} terms`,
           reasons: [...new Set(entry.reasons)].slice(0, 6),
           note: "the decision is in the ruleflow itself (a transition condition or task filter), not only in rules",
-          runs: ops.length ? ops.map((op) => `run by operation '${op}'`) : ["no decision operation runs this ruleflow"],
+          runs: ops.length
+            ? ops.map((op) => `run by operation '${op}'`)
+            : ["no decision operation runs this ruleflow"],
         };
       }
       return {
         ...this.summary(artifact),
         coverage: `${entry.terms.size}/${requested.length} terms`,
         reasons: [...new Set(entry.reasons)].slice(0, 6),
-        ...(artifact.type === "decisionTable" ? { table: this.tableExcerpt(artifact, entry.uses) } : {}),
+        ...(artifact.type === "decisionTable"
+          ? { table: this.tableExcerpt(artifact, entry.uses) }
+          : {}),
         runs: this.runsDescription(artifact).lines,
       };
     });
@@ -878,32 +1132,53 @@ export class KnowledgeBase {
     for (const [id, entry] of ranked) {
       const artifact = this.model.artifacts.get(id) as Artifact;
       if (artifact.type === "ruleflow") continue;
-      if (artifact.package) packageScore.set(artifact.package, (packageScore.get(artifact.package) ?? 0) + entry.score);
+      if (artifact.package)
+        packageScore.set(artifact.package, (packageScore.get(artifact.package) ?? 0) + entry.score);
     }
     const add = [...packageScore.entries()]
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .slice(0, 3)
       .map(([pkg]) => {
         const tasks = this.tasksSelectingPackage(pkg);
-        const exemplars = ranked.filter(([id]) => (this.model.artifacts.get(id) as Artifact).package === pkg).slice(0, 3).map(([id]) => this.summary(this.model.artifacts.get(id) as Artifact));
+        const exemplars = ranked
+          .filter(([id]) => (this.model.artifacts.get(id) as Artifact).package === pkg)
+          .slice(0, 3)
+          .map(([id]) => this.summary(this.model.artifacts.get(id) as Artifact));
         return {
           package: pkg,
           selectedBy: tasks.map((item) => item.reason),
-          operations: [...new Set(tasks.flatMap((item) => this.flowsRunBy.get(item.flow) ?? []))].map((op) => this.model.artifacts.get(op)?.name ?? op),
+          operations: [
+            ...new Set(tasks.flatMap((item) => this.flowsRunBy.get(item.flow) ?? [])),
+          ].map((op) => this.model.artifacts.get(op)?.name ?? op),
           similarRules: exemplars,
-          ...(tasks.length || this.operationsRunningAll().length || ![...this.model.artifacts.values()].some((item) => item.type === "ruleflow")
+          ...(tasks.length ||
+          this.operationsRunningAll().length ||
+          ![...this.model.artifacts.values()].some((item) => item.type === "ruleflow")
             ? {}
             : { warning: "no ruleflow task selects this package: a new rule here would not run" }),
         };
       });
     if (!add.length && requested.length) {
       for (const [pkg, tasks] of [...this.selectionByPackage.entries()].slice(0, 5)) {
-        add.push({ package: pkg, selectedBy: tasks.map((item) => item.reason), operations: [], similarRules: [], warning: "no existing rule uses these terms; this is a package a ruleflow runs" });
+        add.push({
+          package: pkg,
+          selectedBy: tasks.map((item) => item.reason),
+          operations: [],
+          similarRules: [],
+          warning: "no existing rule uses these terms; this is a package a ruleflow runs",
+        });
       }
     }
-    const unresolvedUses = ranked.reduce((sum, [, entry]) => sum + entry.uses.filter((use) => !use.resolved).length, 0);
+    const unresolvedUses = ranked.reduce(
+      (sum, [, entry]) => sum + entry.uses.filter((use) => !use.resolved).length,
+      0,
+    );
     return {
-      requested: requested.map((item) => ({ term: item.term, resolvedTo: item.targets, via: item.via })),
+      requested: requested.map((item) => ({
+        term: item.term,
+        resolvedTo: item.targets,
+        via: item.via,
+      })),
       modify,
       add,
       ...(unverbalized.length
@@ -911,15 +1186,17 @@ export class KnowledgeBase {
             needsVerbalization: unverbalized.map((item) => ({
               term: item.term,
               member: item.member,
-              meaning: "exists in the BOM but has no verbalization: add a vocabulary entry for it (no BOM change needed)",
+              meaning:
+                "exists in the BOM but has no verbalization: add a vocabulary entry for it (no BOM change needed)",
             })),
           }
         : {}),
       vocabularyGaps: gaps.map((gap) => ({
         term: gap.term,
-        meaning: gap.why?.includes("unknown words") || !gap.why
-          ? "not in the vocabulary: a BOM change is needed before a rule can use it"
-          : "the words exist but do not fit together (see why); fix the phrasing, or the BOM if the term is really missing",
+        meaning:
+          gap.why?.includes("unknown words") || !gap.why
+            ? "not in the vocabulary: a BOM change is needed before a rule can use it"
+            : "the words exist but do not fit together (see why); fix the phrasing, or the BOM if the term is really missing",
         ...(gap.why ? { why: gap.why } : {}),
         closest: gap.closest,
       })),
@@ -931,30 +1208,65 @@ export class KnowledgeBase {
   }
 
   private tableExcerpt(artifact: Artifact, uses: Use[]) {
-    const columnIds = new Set(uses.filter((use) => use.where.startsWith("column:")).map((use) => use.where.slice(7)));
+    const columnIds = new Set(
+      uses.filter((use) => use.where.startsWith("column:")).map((use) => use.where.slice(7)),
+    );
     const columns = (artifact.columns ?? []).filter((column) => columnIds.has(column.id));
     const rows = (artifact.rows ?? []).map((row: TableRow) => {
-      const cells = [...row.conditions, ...row.actions].filter((cell) => columnIds.has(cell.columnId));
-      return { row: row.index, cells: cells.map((cell) => ({ column: cell.columnId, values: cell.params, ...(cell.otherwise ? { otherwise: true } : {}), ...(cell.enabled ? {} : { disabled: true }) })) };
+      const cells = [...row.conditions, ...row.actions].filter((cell) =>
+        columnIds.has(cell.columnId),
+      );
+      return {
+        row: row.index,
+        cells: cells.map((cell) => ({
+          column: cell.columnId,
+          values: cell.params,
+          ...(cell.otherwise ? { otherwise: true } : {}),
+          ...(cell.enabled ? {} : { disabled: true }),
+        })),
+      };
     });
     const MAX = 40;
     return {
-      columns: columns.map((column) => ({ id: column.id, kind: column.kind, template: column.template })),
+      columns: columns.map((column) => ({
+        id: column.id,
+        kind: column.kind,
+        template: column.template,
+      })),
       rows: rows.slice(0, MAX),
-      ...(rows.length > MAX ? { moreRows: rows.length - MAX, hint: "get_artifact with rows=[...] returns specific rows" } : {}),
+      ...(rows.length > MAX
+        ? {
+            moreRows: rows.length - MAX,
+            hint: "get_artifact with rows=[...] returns specific rows",
+          }
+        : {}),
       ...(artifact.preconditions ? { preconditions: artifact.preconditions } : {}),
     };
   }
 
   getArtifact(input: { id: string; rows?: number[] }) {
     const found = this.findArtifact(input.id);
-    if (found.ambiguous) return { error: `'${input.id}' matches several artifacts; pass an id.`, matches: found.ambiguous, checked: this.checked() };
+    if (found.ambiguous)
+      return {
+        error: `'${input.id}' matches several artifacts; pass an id.`,
+        matches: found.ambiguous,
+        checked: this.checked(),
+      };
     const artifact = found.artifact;
-    if (!artifact) return { error: `No artifact '${input.id}'.`, suggestions: this.ruleSearch.search(input.id, { limit: 5 }).map((hit) => hit.key), checked: this.checked() };
+    if (!artifact)
+      return {
+        error: `No artifact '${input.id}'.`,
+        suggestions: this.ruleSearch.search(input.id, { limit: 5 }).map((hit) => hit.key),
+        checked: this.checked(),
+      };
     const uses = this.model.uses.get(artifact.id) ?? [];
     const { rows: allRows, ...rest } = artifact;
     const MAX_ROWS = 100;
-    const chosen = allRows ? (input.rows ? allRows.filter((row) => input.rows?.includes(row.index)) : allRows.slice(0, MAX_ROWS)) : undefined;
+    const chosen = allRows
+      ? input.rows
+        ? allRows.filter((row) => input.rows?.includes(row.index))
+        : allRows.slice(0, MAX_ROWS)
+      : undefined;
     const columns = new Map((artifact.columns ?? []).map((column) => [column.id, column]));
     const cell = (item: TableCell) => ({
       column: item.columnId,
@@ -965,68 +1277,117 @@ export class KnowledgeBase {
     });
     const copy = {
       ...rest,
-      ...(chosen ? { rows: chosen.map((row) => ({ row: row.index, conditions: row.conditions.map(cell), actions: row.actions.map(cell) })) } : {}),
-      ...(allRows && !input.rows && allRows.length > MAX_ROWS ? { moreRows: allRows.length - MAX_ROWS, hint: "pass rows=[...] for specific rows" } : {}),
+      ...(chosen
+        ? {
+            rows: chosen.map((row) => ({
+              row: row.index,
+              conditions: row.conditions.map(cell),
+              actions: row.actions.map(cell),
+            })),
+          }
+        : {}),
+      ...(allRows && !input.rows && allRows.length > MAX_ROWS
+        ? { moreRows: allRows.length - MAX_ROWS, hint: "pass rows=[...] for specific rows" }
+        : {}),
     };
     const run = RULE_KINDS.includes(artifact.type as never) ? this.runPath(artifact) : undefined;
     return {
       artifact: copy,
-      uses: uses.map((use) => ({ target: use.target, where: use.where, text: use.text, ...(use.resolved ? {} : { resolved: false }), ...(use.writes ? { writes: true } : {}) })),
+      uses: uses.map((use) => ({
+        target: use.target,
+        where: use.where,
+        text: use.text,
+        ...(use.resolved ? {} : { resolved: false }),
+        ...(use.writes ? { writes: true } : {}),
+      })),
       ...(run
         ? {
             runs: this.runsDescription(artifact).lines,
-            operations: [...new Set([...run.operations, ...this.operationsRunningAll().map((op) => op.id)])].map((op) => this.model.artifacts.get(op)?.name ?? op),
+            operations: [
+              ...new Set([...run.operations, ...this.operationsRunningAll().map((op) => op.id)]),
+            ].map((op) => this.model.artifacts.get(op)?.name ?? op),
           }
         : {}),
-      warnings: this.model.warnings.filter((warning) => warning.path === artifact.provenance.path).map((warning) => warning.message),
+      warnings: this.model.warnings
+        .filter((warning) => warning.path === artifact.provenance.path)
+        .map((warning) => warning.message),
       checked: this.checked(),
     };
   }
 
   getImpact(input: { target: string }) {
     const ref = input.target;
-    const term = this.model.members.has(ref) || this.model.classes.has(ref) ? { targets: [ref], via: "id" } : undefined;
+    const term =
+      this.model.members.has(ref) || this.model.classes.has(ref)
+        ? { targets: [ref], via: "id" }
+        : undefined;
     const found = term ? {} : this.findArtifact(ref);
-    if (found.ambiguous) return { error: `'${ref}' matches several artifacts; pass an id.`, matches: found.ambiguous, checked: this.checked() };
+    if (found.ambiguous)
+      return {
+        error: `'${ref}' matches several artifacts; pass an id.`,
+        matches: found.ambiguous,
+        checked: this.checked(),
+      };
     if (found.artifact) return this.artifactImpact(found.artifact);
     const resolved = term ?? this.resolveTerm(ref);
-    if (resolved && "why" in resolved) return { error: `'${ref}' is not a valid vocabulary phrase: ${resolved.why}`, checked: this.checked() };
+    if (resolved && "why" in resolved)
+      return {
+        error: `'${ref}' is not a valid vocabulary phrase: ${resolved.why}`,
+        checked: this.checked(),
+      };
     if (resolved) return this.termImpact(ref, resolved.targets);
-    return { error: `'${ref}' is not an artifact, package, BOM member or vocabulary phrase.`, checked: this.checked() };
+    return {
+      error: `'${ref}' is not an artifact, package, BOM member or vocabulary phrase.`,
+      checked: this.checked(),
+    };
   }
 
   private artifactImpact(artifact: Artifact) {
     const affected: { artifact: ArtifactSummary; reason: string }[] = [];
     const add = (item: Artifact | undefined, reason: string) => {
       if (!item || item.id === artifact.id) return;
-      if (affected.some((entry) => entry.artifact.id === item.id && entry.reason === reason)) return;
+      if (affected.some((entry) => entry.artifact.id === item.id && entry.reason === reason))
+        return;
       affected.push({ artifact: this.summary(item), reason });
     };
     if (artifact.type === "package") {
-      for (const rule of this.rules().filter((item) => item.package === artifact.name || item.package.startsWith(`${artifact.name}.`))) add(rule, `in package ${artifact.name}`);
+      for (const rule of this.rules().filter(
+        (item) => item.package === artifact.name || item.package.startsWith(`${artifact.name}.`),
+      ))
+        add(rule, `in package ${artifact.name}`);
       const tasks = this.tasksSelectingPackage(artifact.name);
       for (const task of tasks) add(this.model.artifacts.get(task.flow), task.reason);
-      for (const op of new Set(tasks.flatMap((task) => this.flowsRunBy.get(task.flow) ?? []))) add(this.model.artifacts.get(op), "runs a ruleflow that selects this package");
+      for (const op of new Set(tasks.flatMap((task) => this.flowsRunBy.get(task.flow) ?? [])))
+        add(this.model.artifacts.get(op), "runs a ruleflow that selects this package");
       return { target: this.summary(artifact), affected, checked: this.checked() };
     }
     if (artifact.type === "ruleflow") {
-      for (const op of this.flowsRunBy.get(artifact.id) ?? []) add(this.model.artifacts.get(op), "runs this ruleflow");
-      for (const parent of this.subflowParents.get(artifact.id) ?? []) add(this.model.artifacts.get(parent), "runs this ruleflow as a subflow");
+      for (const op of this.flowsRunBy.get(artifact.id) ?? [])
+        add(this.model.artifacts.get(op), "runs this ruleflow");
+      for (const parent of this.subflowParents.get(artifact.id) ?? [])
+        add(this.model.artifacts.get(parent), "runs this ruleflow as a subflow");
       return { target: this.summary(artifact), affected, checked: this.checked() };
     }
     const run = this.runPath(artifact);
     for (const sel of run.selectedBy) add(this.model.artifacts.get(sel.flow), sel.reason);
-    for (const op of run.operations) add(this.model.artifacts.get(op), "runs a ruleflow that selects this rule");
+    for (const op of run.operations)
+      add(this.model.artifacts.get(op), "runs a ruleflow that selects this rule");
     if (artifact.package) {
-      for (const rule of this.rules().filter((item) => item.package === artifact.package)) add(rule, `same package '${artifact.package}': selected and run together`);
+      for (const rule of this.rules().filter((item) => item.package === artifact.package))
+        add(rule, `same package '${artifact.package}': selected and run together`);
     }
     // Data flow: rules that read what this rule writes.
-    const writes = (this.model.uses.get(artifact.id) ?? []).filter((use) => use.writes).map((use) => use.target);
+    const writes = (this.model.uses.get(artifact.id) ?? [])
+      .filter((use) => use.writes)
+      .map((use) => use.target);
     for (const target of new Set(writes)) {
       for (const expanded of this.expandDerived(target)) {
         for (const { artifactId, use } of this.model.usedBy.get(expanded.id) ?? []) {
           if (use.writes) continue;
-          add(this.model.artifacts.get(artifactId), `reads ${expanded.id}, which this rule sets${expanded.via ? ` (${expanded.via})` : ""}`);
+          add(
+            this.model.artifacts.get(artifactId),
+            `reads ${expanded.id}, which this rule sets${expanded.via ? ` (${expanded.via})` : ""}`,
+          );
         }
       }
     }
@@ -1034,7 +1395,11 @@ export class KnowledgeBase {
     return {
       target: this.summary(artifact),
       runs: runs.lines,
-      ...(runs.runs ? {} : { warning: "this rule does not run: no ruleflow task that an operation runs selects it" }),
+      ...(runs.runs
+        ? {}
+        : {
+            warning: "this rule does not run: no ruleflow task that an operation runs selects it",
+          }),
       affected,
       checked: this.checked(),
     };
@@ -1044,12 +1409,16 @@ export class KnowledgeBase {
     const affected: { artifact: ArtifactSummary; reason: string; resolved: boolean }[] = [];
     const seen = new Set<string>();
     let unresolved = 0;
-    const subclasses = (fqn: string) => [...this.model.ancestors.entries()].filter(([, list]) => list.includes(fqn)).map(([sub]) => sub);
+    const subclasses = (fqn: string) =>
+      [...this.model.ancestors.entries()]
+        .filter(([, list]) => list.includes(fqn))
+        .map(([sub]) => sub);
     const expandedTargets: { id: string; via?: string }[] = [];
     for (const target of targets) {
       expandedTargets.push(...this.expandDerived(target));
       if (this.model.classes.has(target)) {
-        for (const sub of subclasses(target)) expandedTargets.push({ id: sub, via: `${sub} extends ${target}` });
+        for (const sub of subclasses(target))
+          expandedTargets.push({ id: sub, via: `${sub} extends ${target}` });
       }
     }
     for (const { id, via } of expandedTargets) {
@@ -1074,8 +1443,19 @@ export class KnowledgeBase {
       derived: expandedTargets.filter((item) => item.via).map((item) => item.via),
       total: affected.length,
       affected: affected.slice(0, MAX),
-      ...(affected.length > MAX ? { note: `${affected.length - MAX} more not shown; narrow the target or use find_change_candidates` } : {}),
-      checked: this.checked({ unresolvedUses: unresolved, ...(unresolved ? { note: "unresolved uses are included so nothing is missed; their subject could not be typed" } : {}) }),
+      ...(affected.length > MAX
+        ? {
+            note: `${affected.length - MAX} more not shown; narrow the target or use find_change_candidates`,
+          }
+        : {}),
+      checked: this.checked({
+        unresolvedUses: unresolved,
+        ...(unresolved
+          ? {
+              note: "unresolved uses are included so nothing is missed; their subject could not be typed",
+            }
+          : {}),
+      }),
     };
   }
 
@@ -1088,36 +1468,65 @@ export class KnowledgeBase {
     let chosen = flows;
     if (input.ruleflow) {
       const found = this.findArtifact(input.ruleflow);
-      if (found.ambiguous) return { error: `'${input.ruleflow}' matches several artifacts; pass an id.`, matches: found.ambiguous, checked: this.checked() };
+      if (found.ambiguous)
+        return {
+          error: `'${input.ruleflow}' matches several artifacts; pass an id.`,
+          matches: found.ambiguous,
+          checked: this.checked(),
+        };
       if (!found.artifact || found.artifact.type !== "ruleflow") {
-        return { error: `No ruleflow '${input.ruleflow}'.`, ruleflows: flows.map((item) => this.summary(item)), checked: this.checked() };
+        return {
+          error: `No ruleflow '${input.ruleflow}'.`,
+          ruleflows: flows.map((item) => this.summary(item)),
+          checked: this.checked(),
+        };
       }
       chosen = [found.artifact];
     }
     if (!chosen.length) {
-      return { ruleflows: [], note: "This decision service has no ruleflow: an operation without a ruleflow runs every rule.", checked: this.checked() };
+      return {
+        ruleflows: [],
+        note: "This decision service has no ruleflow: an operation without a ruleflow runs every rule.",
+        checked: this.checked(),
+      };
     }
     const rulesOfTask = (flow: Artifact, taskId: string) => {
       const task = flow.tasks?.find((item) => item.id === taskId);
       const ids = new Set<string>();
       for (const pkg of task?.packages ?? []) {
-        for (const rule of this.rules()) if (rule.package === pkg || rule.package.startsWith(`${pkg}.`)) ids.add(rule.id);
+        for (const rule of this.rules())
+          if (rule.package === pkg || rule.package.startsWith(`${pkg}.`)) ids.add(rule.id);
       }
-      for (const edge of this.model.edges) if (edge.type === "SELECTS" && edge.from === `${flow.id}#${taskId}` && !edge.to.startsWith("pkg:")) ids.add(edge.to);
+      for (const edge of this.model.edges)
+        if (
+          edge.type === "SELECTS" &&
+          edge.from === `${flow.id}#${taskId}` &&
+          !edge.to.startsWith("pkg:")
+        )
+          ids.add(edge.to);
       return [...ids];
     };
     const result = chosen.map((flow) => {
       const analysis = this.flows.get(flow.id) as FlowAnalysis;
-      const operations = (this.flowsRunBy.get(flow.id) ?? []).map((op) => this.model.artifacts.get(op)?.name ?? op);
+      const operations = (this.flowsRunBy.get(flow.id) ?? []).map(
+        (op) => this.model.artifacts.get(op)?.name ?? op,
+      );
       const calledFrom = this.model.edges
         .filter((edge) => edge.type === "SUBFLOW" && edge.to === flow.id)
         .map((edge) => {
           const [parent, task] = edge.from.split("#");
-          return { ruleflow: this.model.artifacts.get(parent)?.name ?? parent, task, reason: this.taskReason(parent, task) };
+          return {
+            ruleflow: this.model.artifacts.get(parent)?.name ?? parent,
+            task,
+            reason: this.taskReason(parent, task),
+          };
         });
       const tasks = [...(flow.tasks ?? [])]
         .map((task) => ({ task, info: analysis.tasks.get(task.id) }))
-        .sort((a, b) => (a.info?.order ?? 1e9) - (b.info?.order ?? 1e9) || a.task.id.localeCompare(b.task.id))
+        .sort(
+          (a, b) =>
+            (a.info?.order ?? 1e9) - (b.info?.order ?? 1e9) || a.task.id.localeCompare(b.task.id),
+        )
         .filter((item) => !input.task || item.task.id === input.task)
         .map(({ task, info }) => {
           const rules = task.kind === "rule" ? rulesOfTask(flow, task.id) : [];
@@ -1130,10 +1539,27 @@ export class KnowledgeBase {
             ...(info && !info.always && info.reachable ? { paths: info.paths } : {}),
             ...(task.packages.length ? { selectsPackages: task.packages } : {}),
             ...(task.rules.length ? { selectsRules: task.rules } : {}),
-            ...(task.kind === "rule" ? { rules: rules.length, ruleNames: rules.slice(0, 25).map((id) => this.model.artifacts.get(id)?.name ?? id) } : {}),
+            ...(task.kind === "rule"
+              ? {
+                  rules: rules.length,
+                  ruleNames: rules
+                    .slice(0, 25)
+                    .map((id) => this.model.artifacts.get(id)?.name ?? id),
+                }
+              : {}),
             ...(task.algorithm ? { algorithm: task.algorithm } : {}),
-            ...(task.exitCriteria && task.exitCriteria !== "None" ? { exitCriteria: task.exitCriteria } : {}),
-            ...(task.subflow ? { runsSubflow: this.model.edges.filter((edge) => edge.type === "SUBFLOW" && edge.from === `${flow.id}#${task.id}`).map((edge) => this.model.artifacts.get(edge.to)?.name ?? edge.to) } : {}),
+            ...(task.exitCriteria && task.exitCriteria !== "None"
+              ? { exitCriteria: task.exitCriteria }
+              : {}),
+            ...(task.subflow
+              ? {
+                  runsSubflow: this.model.edges
+                    .filter(
+                      (edge) => edge.type === "SUBFLOW" && edge.from === `${flow.id}#${task.id}`,
+                    )
+                    .map((edge) => this.model.artifacts.get(edge.to)?.name ?? edge.to),
+                }
+              : {}),
             ...(task.actions ? { actions: task.actions } : {}),
             ...(settings.length ? { notes: settings } : {}),
             next: info?.successors ?? [],
@@ -1144,45 +1570,74 @@ export class KnowledgeBase {
       const contexts = this.flowRunContexts(flow.id).filter((context) => context.via.length);
       return {
         ...this.summary(flow),
-        runBy: operations.length ? operations.map((name) => `operation '${name}'`) : calledFrom.length ? [] : ["no decision operation runs this ruleflow"],
+        runBy: operations.length
+          ? operations.map((name) => `operation '${name}'`)
+          : calledFrom.length
+            ? []
+            : ["no decision operation runs this ruleflow"],
         ...(calledFrom.length ? { calledFrom } : {}),
         ...(contexts.length
           ? {
               runsAsSubflow: contexts.map((context) => ({
                 via: context.via,
-                when: context.reachable ? (context.conditions.length ? context.conditions.join(" and ") : "always") : "never: a calling task is unreachable",
-                operations: context.operations.map((op) => this.model.artifacts.get(op)?.name ?? op),
+                when: context.reachable
+                  ? context.conditions.length
+                    ? context.conditions.join(" and ")
+                    : "always"
+                  : "never: a calling task is unreachable",
+                operations: context.operations.map(
+                  (op) => this.model.artifacts.get(op)?.name ?? op,
+                ),
               })),
               note: "this is a subflow: every task's reachedWhen applies on top of the conditions in runsAsSubflow",
             }
           : {}),
         start: analysis.starts,
         ...(analysis.unreachable.length ? { unreachable: analysis.unreachable } : {}),
-        ...(analysis.hasCycle ? { note: "the flow has a loop: a transition goes back to an earlier task" } : {}),
+        ...(analysis.hasCycle
+          ? { note: "the flow has a loop: a transition goes back to an earlier task" }
+          : {}),
         tasks,
       };
     });
     return {
       ruleflows: result,
-      legend: "order: steps from the start (tasks with the same order can run on different branches). reachedWhen: the conditions on every path from the start; 'otherwise' is the transition taken when none of its siblings' conditions hold.",
+      legend:
+        "order: steps from the start (tasks with the same order can run on different branches). reachedWhen: the conditions on every path from the start; 'otherwise' is the transition taken when none of its siblings' conditions hold.",
       checked: this.checked(),
     };
   }
 
   getOperationSignature(input: { operation?: string }) {
-    const ops = [...this.model.artifacts.values()].filter((item) => item.type === "decisionOperation");
-    const chosen = input.operation ? ops.filter((item) => item.name === input.operation || item.id === input.operation) : ops;
-    if (!chosen.length) return { error: `No decision operation '${input.operation}'.`, operations: ops.map((item) => item.name), checked: this.checked() };
+    const ops = [...this.model.artifacts.values()].filter(
+      (item) => item.type === "decisionOperation",
+    );
+    const chosen = input.operation
+      ? ops.filter((item) => item.name === input.operation || item.id === input.operation)
+      : ops;
+    if (!chosen.length)
+      return {
+        error: `No decision operation '${input.operation}'.`,
+        operations: ops.map((item) => item.name),
+        checked: this.checked(),
+      };
     return {
       operations: chosen.map((op) => {
-        const flow = this.model.edges.find((edge) => edge.type === "RUNS" && edge.from === op.id)?.to;
+        const flow = this.model.edges.find(
+          (edge) => edge.type === "RUNS" && edge.from === op.id,
+        )?.to;
         return {
           ...this.summary(op),
           ruleset: op.operation?.rulesetName,
           ruleflow: flow ? this.model.artifacts.get(flow)?.name : op.operation?.ruleflowName,
           signature: (op.operation?.signature ?? []).map((item) => {
             const variable = [...this.model.variables.values()].find((v) => v.name === item.name);
-            return { name: item.name, direction: item.direction, type: variable?.type ?? null, verbalization: variable?.verbalization ?? null };
+            return {
+              name: item.name,
+              direction: item.direction,
+              type: variable?.type ?? null,
+              verbalization: variable?.verbalization ?? null,
+            };
           }),
         };
       }),
@@ -1195,8 +1650,14 @@ export class KnowledgeBase {
     // A rule searched by its exact name comes first, whatever the body length.
     const exact = this.rulesByNormalizedName.get(normalize(query)) ?? [];
     const hits = this.ruleSearch.search(query, { limit: limit + exact.length });
-    const ordered = [...exact.map((key) => ({ key, score: Infinity })), ...hits.filter((hit) => !exact.includes(hit.key))].slice(0, limit);
-    return ordered.map((hit) => ({ ...this.summary(this.model.artifacts.get(hit.key) as Artifact), score: hit.score === Infinity ? 100 : Math.round(hit.score * 100) / 100 }));
+    const ordered = [
+      ...exact.map((key) => ({ key, score: Infinity })),
+      ...hits.filter((hit) => !exact.includes(hit.key)),
+    ].slice(0, limit);
+    return ordered.map((hit) => ({
+      ...this.summary(this.model.artifacts.get(hit.key) as Artifact),
+      score: hit.score === Infinity ? 100 : Math.round(hit.score * 100) / 100,
+    }));
   }
 
   warnings(): Warning[] {
@@ -1225,8 +1686,18 @@ function bodyText(artifact: Artifact): string {
     artifact.irl,
     ...(artifact.columns ?? []).map((column) => column.template),
     // Row text is the column templates again plus values; only text values add anything searchable.
-    [...new Set((artifact.rows ?? []).flatMap((row) => [...row.conditions, ...row.actions].flatMap((cell) => cell.params.filter((param) => /^".*"$/.test(param)))))].join(" "),
-    ...(artifact.tasks ?? []).map((task) => [task.id, ...task.packages, ...task.rules, task.filter].filter(Boolean).join(" ")),
+    [
+      ...new Set(
+        (artifact.rows ?? []).flatMap((row) =>
+          [...row.conditions, ...row.actions].flatMap((cell) =>
+            cell.params.filter((param) => /^".*"$/.test(param)),
+          ),
+        ),
+      ),
+    ].join(" "),
+    ...(artifact.tasks ?? []).map((task) =>
+      [task.id, ...task.packages, ...task.rules, task.filter].filter(Boolean).join(" "),
+    ),
   ]
     .filter(Boolean)
     .join("\n");

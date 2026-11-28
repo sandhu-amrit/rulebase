@@ -29,11 +29,14 @@ test("every term use is resolved to the right member", () => {
     "var:borrower@conditions",
     "var:loan@actions",
   ]);
-  for (const uses of kb.model.uses.values()) for (const use of uses) assert.ok(use.resolved, `${use.target} in ${use.where}`);
+  for (const uses of kb.model.uses.values())
+    for (const use of uses) assert.ok(use.resolved, `${use.target} in ${use.where}`);
 });
 
 test("impact follows ruleflow selection and transition conditions", () => {
-  const impact = kb.getImpact({ target: "minimum income" }) as { affected: { artifact: { name: string }; reason: string }[] };
+  const impact = kb.getImpact({ target: "minimum income" }) as {
+    affected: { artifact: { name: string }; reason: string }[];
+  };
   const names = impact.affected.map((item) => item.artifact.name);
   assert.ok(names.includes("miniloan"), "ruleflow");
   assert.ok(names.includes("Miniloan Service Operation"), "operation");
@@ -44,7 +47,12 @@ test("impact follows ruleflow selection and transition conditions", () => {
 });
 
 test("operation signature binds to ruleset parameters", () => {
-  const result = kb.getOperationSignature({}) as { operations: { ruleflow: string; signature: { name: string; type: string; direction: string }[] }[] };
+  const result = kb.getOperationSignature({}) as {
+    operations: {
+      ruleflow: string;
+      signature: { name: string; type: string; direction: string }[];
+    }[];
+  };
   assert.equal(result.operations[0].ruleflow, "miniloan");
   assert.deepEqual(result.operations[0].signature, [
     { name: "borrower", direction: "IN", type: "miniloan.Borrower", verbalization: "the borrower" },
@@ -54,8 +62,13 @@ test("operation signature binds to ruleset parameters", () => {
 
 test("decision-table candidates point at columns and rows", () => {
   const result = kb.findChangeCandidates({ terms: ["the credit score of the borrower"] });
-  const table = result.modify.find((item) => item.type === "decisionTable") as { table: { columns: { id: string }[]; rows: { row: number; cells: { values: string[] }[] }[] } };
-  assert.deepEqual(table.table.columns.map((column) => column.id), ["C1"]);
+  const table = result.modify.find((item) => item.type === "decisionTable") as {
+    table: { columns: { id: string }[]; rows: { row: number; cells: { values: string[] }[] }[] };
+  };
+  assert.deepEqual(
+    table.table.columns.map((column) => column.id),
+    ["C1"],
+  );
   assert.equal(table.table.rows.length, 7);
   assert.deepEqual(table.table.rows[0].cells[0].values, ["0", "200"]);
 });

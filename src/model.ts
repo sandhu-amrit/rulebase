@@ -10,14 +10,10 @@ export interface Provenance {
   uuid?: string;
 }
 
-export type RuleKind = "actionRule" | "decisionTable" | "decisionTree" | "function" | "technicalRule";
+export type RuleKind =
+  "actionRule" | "decisionTable" | "decisionTree" | "function" | "technicalRule";
 
-export type ArtifactType =
-  | RuleKind
-  | "ruleflow"
-  | "decisionOperation"
-  | "variableSet"
-  | "package";
+export type ArtifactType = RuleKind | "ruleflow" | "decisionOperation" | "variableSet" | "package";
 
 export const RULE_KINDS: readonly RuleKind[] = [
   "actionRule",

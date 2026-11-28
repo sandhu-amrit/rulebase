@@ -27,12 +27,18 @@ test("incremental reindex reuses unchanged files, identical reindex stores nothi
   assert.ok(fs.statSync(cacheFile).size <= sizeAfterFirst * 1.5);
 
   const rule = path.join(workspace, "rules", "validation", "maximum amount.brl");
-  fs.writeFileSync(rule, fs.readFileSync(rule, "utf8").replace("more than 1,000,000", "more than 500,000"));
+  fs.writeFileSync(
+    rule,
+    fs.readFileSync(rule, "utf8").replace("more than 1,000,000", "more than 500,000"),
+  );
   const third = new Session(workspace, { cacheFile });
   const c = third.rebuild();
   assert.equal(c.stats.parsed, 1, "only the edited file is parsed again");
   const drift = third.drift();
-  assert.deepEqual(drift.changed.map((item) => item.name), ["maximum amount"]);
+  assert.deepEqual(
+    drift.changed.map((item) => item.name),
+    ["maximum amount"],
+  );
   assert.deepEqual(drift.added, []);
   third.close();
 });
@@ -45,14 +51,19 @@ test("only the current and previous snapshots are kept", () => {
   const session = new Session(workspace, { cacheFile });
   const rule = path.join(workspace, "rules", "validation", "maximum amount.brl");
   for (let i = 0; i < 5; i++) {
-    fs.writeFileSync(rule, fs.readFileSync(rule, "utf8").replace(/is more than [\d,]+/, `is more than ${100000 + i}`));
+    fs.writeFileSync(
+      rule,
+      fs.readFileSync(rule, "utf8").replace(/is more than [\d,]+/, `is more than ${100000 + i}`),
+    );
     session.rebuild();
   }
   const latest = session.store.latest()!;
   const previous = session.store.previous()!;
   assert.ok(latest.id > previous.id);
   // @ts-expect-error reaching into the private handle for a count
-  const count = session.store.db.prepare("SELECT COUNT(*) AS n FROM snapshots").get() as { n: number };
+  const count = session.store.db.prepare("SELECT COUNT(*) AS n FROM snapshots").get() as {
+    n: number;
+  };
   assert.equal(count.n, 2);
   session.close();
 });
@@ -64,10 +75,22 @@ test("a session notices a changed file before answering", async () => {
   const session = new Session(workspace, { cacheFile: path.join(dir, "c.sqlite"), watch: true });
   assert.equal(session.kb().findArtifact("maximum amount").artifact?.name, "maximum amount");
   const rule = path.join(workspace, "rules", "validation", "maximum amount.brl");
-  fs.writeFileSync(rule, fs.readFileSync(rule, "utf8").replace("<name>maximum amount</name>", "<name>maximum loan amount</name>"));
-  for (let i = 0; i < 50 && session.kb().findArtifact("maximum loan amount").artifact === undefined; i++) {
+  fs.writeFileSync(
+    rule,
+    fs
+      .readFileSync(rule, "utf8")
+      .replace("<name>maximum amount</name>", "<name>maximum loan amount</name>"),
+  );
+  for (
+    let i = 0;
+    i < 50 && session.kb().findArtifact("maximum loan amount").artifact === undefined;
+    i++
+  ) {
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  assert.equal(session.kb().findArtifact("maximum loan amount").artifact?.name, "maximum loan amount");
+  assert.equal(
+    session.kb().findArtifact("maximum loan amount").artifact?.name,
+    "maximum loan amount",
+  );
   session.close();
 });

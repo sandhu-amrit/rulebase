@@ -7,7 +7,10 @@ import type { DriftReport } from "./drift.ts";
 import type { KnowledgeBase } from "./kb.ts";
 
 const esc = (value: unknown) =>
-  String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] as string);
+  String(value ?? "").replace(
+    /[&<>"']/g,
+    (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] as string,
+  );
 
 export function renderReport(kb: KnowledgeBase, gates: Gate[], drift: DriftReport): string {
   const overview = kb.listDecisionServices();
@@ -16,9 +19,12 @@ export function renderReport(kb: KnowledgeBase, gates: Gate[], drift: DriftRepor
   const failed = gates.filter((gate) => !gate.pass);
   const counts = Object.entries(overview.counts).filter(([, value]) => value);
   const skipped = Object.entries(kb.meta.skipped);
-  const row = (cells: unknown[]) => `<tr>${cells.map((cell) => `<td>${esc(cell)}</td>`).join("")}</tr>`;
+  const row = (cells: unknown[]) =>
+    `<tr>${cells.map((cell) => `<td>${esc(cell)}</td>`).join("")}</tr>`;
   const list = (items: { name: string; path: string }[]) =>
-    items.length ? `<ul>${items.map((item) => `<li>${esc(item.name)} <span class="muted">${esc(item.path)}</span></li>`).join("")}</ul>` : `<p class="muted">None.</p>`;
+    items.length
+      ? `<ul>${items.map((item) => `<li>${esc(item.name)} <span class="muted">${esc(item.path)}</span></li>`).join("")}</ul>`
+      : `<p class="muted">None.</p>`;
 
   return `<!doctype html>
 <html lang="en">
@@ -56,7 +62,9 @@ ${gates
   .map(
     (gate) =>
       `<tr><td class="${gate.pass ? "ok" : "bad"}">${gate.pass ? "PASS" : "FAIL"}</td><td>${esc(gate.label)}</td><td>${esc(gate.detail)}${
-        gate.failures?.length ? `<details><summary>${gate.failures.length} item(s)</summary><ul>${gate.failures.map((item) => `<li class="mono">${esc(item)}</li>`).join("")}</ul></details>` : ""
+        gate.failures?.length
+          ? `<details><summary>${gate.failures.length} item(s)</summary><ul>${gate.failures.map((item) => `<li class="mono">${esc(item)}</li>`).join("")}</ul></details>`
+          : ""
       }</td></tr>`,
   )
   .join("\n")}

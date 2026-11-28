@@ -16,17 +16,39 @@ export function drift(
 ): DriftReport {
   const before = new Map((previous?.summary.artifacts ?? []).map((item) => [item.id, item]));
   const after = new Map(current.summary.artifacts.map((item) => [item.id, item]));
-  const pick = ({ id, name, type, path }: { id: string; name: string; type: string; path: string }) => ({ id, name, type, path });
+  const pick = ({
+    id,
+    name,
+    type,
+    path,
+  }: {
+    id: string;
+    name: string;
+    type: string;
+    path: string;
+  }) => ({ id, name, type, path });
   const added = [...after.values()].filter((item) => !before.has(item.id)).map(pick);
   const removed = [...before.values()].filter((item) => !after.has(item.id)).map(pick);
-  const changed = [...after.values()].filter((item) => before.has(item.id) && before.get(item.id)?.fingerprint !== item.fingerprint).map(pick);
+  const changed = [...after.values()]
+    .filter((item) => before.has(item.id) && before.get(item.id)?.fingerprint !== item.fingerprint)
+    .map(pick);
   const phrasesBefore = new Set((previous?.summary.phrases ?? []).map((item) => item.text));
   const phrasesAfter = new Set(current.summary.phrases.map((item) => item.text));
   const membersBefore = new Set(previous?.summary.members ?? []);
   const membersAfter = new Set(current.summary.members);
   return {
-    ...(previous ? { from: { indexedAt: previous.createdAt, ...(previous.summary.branch ? { branch: previous.summary.branch } : {}) } } : {}),
-    to: { indexedAt: current.createdAt, ...(current.summary.branch ? { branch: current.summary.branch } : {}) },
+    ...(previous
+      ? {
+          from: {
+            indexedAt: previous.createdAt,
+            ...(previous.summary.branch ? { branch: previous.summary.branch } : {}),
+          },
+        }
+      : {}),
+    to: {
+      indexedAt: current.createdAt,
+      ...(current.summary.branch ? { branch: current.summary.branch } : {}),
+    },
     added,
     removed,
     changed,

@@ -11,25 +11,25 @@ Every fact you report is **grounded**: it comes from a tool result, and you can 
 
 ## Pick the branch
 
-| The person asks… | Do |
-|---|---|
-| for a new or changed requirement ("decline applicants whose…", "raise the threshold to…") | **Requirement**, below |
-| for a requirement with several clauses (a policy, a list of changes) | Read `large-requirement.md` in this skill's folder and follow it |
-| to change a ruleflow (add, move or remove a task, change a transition or a task's selection), or what runs in what order | Read `ruleflow-change.md` in this skill's folder and follow it |
-| what changing a rule, package, ruleflow or BOM member affects | `get_impact`, then report as in step 5 |
-| whether a term exists, or what something is called | `find_terms` with several wordings, then `list_terms` on the likely class |
-| what changed after a sync or a branch switch | `drift` |
-| how a rule or table works, or what its rows are | `get_artifact` (pass `rows` for specific table rows) |
+| The person asks…                                                                                                         | Do                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| for a new or changed requirement ("decline applicants whose…", "raise the threshold to…")                                | **Requirement**, below                                                    |
+| for a requirement with several clauses (a policy, a list of changes)                                                     | Read `large-requirement.md` in this skill's folder and follow it          |
+| to change a ruleflow (add, move or remove a task, change a transition or a task's selection), or what runs in what order | Read `ruleflow-change.md` in this skill's folder and follow it            |
+| what changing a rule, package, ruleflow or BOM member affects                                                            | `get_impact`, then report as in step 5                                    |
+| whether a term exists, or what something is called                                                                       | `find_terms` with several wordings, then `list_terms` on the likely class |
+| what changed after a sync or a branch switch                                                                             | `drift`                                                                   |
+| how a rule or table works, or what its rows are                                                                          | `get_artifact` (pass `rows` for specific table rows)                      |
 
 Start every session with `list_decision_services`. Note the decision service, the locale, and every entry under `warnings.errors`.
 
 ## Requirement
 
 1. **Ground the words.** For each business concept in the requirement, call `find_terms` with two or three wordings (synonyms, the BOM's likely field name). Browse with `list_terms` when the search is thin: it is complete, so a term missing there does not exist. Check the team glossary hits that `find_terms` returns.
-   *Done when* every concept maps to a vocabulary phrase or member id, or is listed as missing.
+   _Done when_ every concept maps to a vocabulary phrase or member id, or is listed as missing.
 
 2. **Write the logic in the vocabulary's own words**, as BAL-like phrases: conditions ("the credit score of the borrower is less than 620") and actions ("reject the loan"). Run `validate_phrases` on all of them.
-   *Done when* every phrase comes back `ok`. Fix unknown words and type errors by rephrasing with real terms. A phrase that only validates after inventing a word is a gap, not a fix.
+   _Done when_ every phrase comes back `ok`. Fix unknown words and type errors by rephrasing with real terms. A phrase that only validates after inventing a word is a gap, not a fix.
 
 3. **Find the change.** Call `find_change_candidates` with the validated terms and the original requirement. Read every section of the result:
    - `modify`: each rule, table or ruleflow that uses the terms, with the reason. For tables, the matching columns and rows. For a ruleflow, the decision sits in a transition condition or task filter: follow `ruleflow-change.md` for that candidate.
@@ -38,7 +38,7 @@ Start every session with `list_decision_services`. Note the decision service, th
    - `vocabularyGaps`: the term doesn't exist, or its words don't fit together (read `why`). A BOM or vocabulary change comes first.
 
 4. **Look closer at each `modify` candidate.** Use `get_artifact` to read its current logic (with `rows` for the relevant table rows), and decide whether the requirement changes it: a threshold, a new condition, a new row, or nothing.
-   *Done when* each candidate is marked change, add-row, or no change, with a one-line reason.
+   _Done when_ each candidate is marked change, add-row, or no change, with a one-line reason.
 
 5. **Check the reach.** Call `get_impact` on each artifact you propose to change, and on each BOM member whose meaning changes. Note what else selects it, runs it, or reads what it sets.
 
@@ -62,20 +62,24 @@ Start every session with `list_decision_services`. Note the decision service, th
 **Decision service:** <name> · **indexed:** <checked.indexedAt> · **unread files:** <none | list>
 
 ### Vocabulary
+
 | Business words | Vocabulary term | Status |
 | debt-to-income | the debt ratio of the borrower | exists |
 | employment type | – | gap: BOM change needed (<why>) |
 
 ### Changes
+
 1. **Modify** `<package>/<rule or table>` (<path>): <what changes, e.g. row 3, column C0: 30 → 40>. Runs: <runs line>.
 2. **Add** a rule in package `<package>` (run by <task / operation>):
-       if <validated condition phrases>
-       then <validated action phrases>;
+   if <validated condition phrases>
+   then <validated action phrases>;
 
 ### Impact
+
 - <artifact>: <reason from get_impact>
 
 ### Open points
+
 - <gaps, "possible" matches, ambiguities, unread files, rules that don't run>
 ```
 

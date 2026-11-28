@@ -17,12 +17,14 @@ function nested(unreachableCaller = false): string {
   const dir = tempDir();
   copyTree(path.join(I18N, "Credit"), path.join(dir, "Credit"));
   const rules = path.join(dir, "Credit", "règles");
-  const principal = fs.readFileSync(path.join(rules, "principal.rfl"), "utf8").replace(
-    '<Transition Identifier="t1" Source="n1" Target="n2"/>',
-    unreachableCaller
-      ? '<Transition Identifier="t1" Source="n1" Target="n3"/>'
-      : '<Transition Identifier="t1" Source="n1" Target="n2"><Conditions Language="bal"><![CDATA[le montant de \'la demande\' est plus grand que 5000]]></Conditions></Transition><Transition Identifier="t1b" Source="n1" Target="n3"/>',
-  );
+  const principal = fs
+    .readFileSync(path.join(rules, "principal.rfl"), "utf8")
+    .replace(
+      '<Transition Identifier="t1" Source="n1" Target="n2"/>',
+      unreachableCaller
+        ? '<Transition Identifier="t1" Source="n1" Target="n3"/>'
+        : '<Transition Identifier="t1" Source="n1" Target="n2"><Conditions Language="bal"><![CDATA[le montant de \'la demande\' est plus grand que 5000]]></Conditions></Transition><Transition Identifier="t1b" Source="n1" Target="n3"/>',
+    );
   fs.writeFileSync(path.join(rules, "principal.rfl"), principal);
   fs.writeFileSync(
     path.join(rules, "sorties.rfl"),
@@ -60,11 +62,21 @@ test("a rule two subflows deep carries every caller's condition, and the operati
   assert.equal(runs.runs, true);
   const line = runs.lines.join("\n");
   assert.match(line, /ruleflow 'principal' task 'sorties' → ruleflow 'sorties' task 'plus loin'/);
-  assert.match(line, /le montant de 'la demande' est plus grand que 5000 and la duree mois de 'la demande' est plus grand que 12/);
+  assert.match(
+    line,
+    /le montant de 'la demande' est plus grand que 5000 and la duree mois de 'la demande' est plus grand que 12/,
+  );
   const { operations } = kb.runPath(rule);
-  assert.deepEqual(operations.map((id) => kb.model.artifacts.get(id)?.name), ["decider"]);
+  assert.deepEqual(
+    operations.map((id) => kb.model.artifacts.get(id)?.name),
+    ["decider"],
+  );
 
-  const deep = (kb.getRuleflowPaths({ ruleflow: "profond" }) as { ruleflows: { runsAsSubflow?: { via: string[]; when: string; operations: string[] }[] }[] }).ruleflows[0];
+  const deep = (
+    kb.getRuleflowPaths({ ruleflow: "profond" }) as {
+      ruleflows: { runsAsSubflow?: { via: string[]; when: string; operations: string[] }[] }[];
+    }
+  ).ruleflows[0];
   assert.deepEqual(deep.runsAsSubflow?.[0].operations, ["decider"]);
   assert.match(deep.runsAsSubflow?.[0].when ?? "", /plus grand que 5000 and .*plus grand que 12/);
 });

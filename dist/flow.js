@@ -20,7 +20,9 @@ export function analyzeFlow(flow) {
         bySource.set(transition.source, [...(bySource.get(transition.source) ?? []), transition]);
     }
     for (const [source, list] of bySource) {
-        const conditioned = list.filter((item) => item.condition).map((item) => item.condition.replace(/\s+/g, " ").trim());
+        const conditioned = list
+            .filter((item) => item.condition)
+            .map((item) => item.condition.replace(/\s+/g, " ").trim());
         for (const transition of list) {
             let guard;
             if (kindOf.get(source) !== "fork") {
@@ -34,7 +36,9 @@ export function analyzeFlow(flow) {
         }
     }
     const declaredStarts = tasks.filter((task) => task.kind === "start").map((task) => task.id);
-    const starts = declaredStarts.length ? declaredStarts : [...ids].filter((id) => !(inn.get(id) ?? []).length);
+    const starts = declaredStarts.length
+        ? declaredStarts
+        : [...ids].filter((id) => !(inn.get(id) ?? []).length);
     const stops = tasks.filter((task) => task.kind === "stop").map((task) => task.id);
     // Paths with their guards (depth-first, no task twice on one path).
     const paths = new Map();
@@ -171,7 +175,9 @@ function simplify(input) {
                     continue;
                 const prefix = key ? key.split("\u0001") : [];
                 const covered = new Set([last, ...siblings]);
-                list = list.filter((path) => !(path.length === prefix.length + 1 && path.slice(0, -1).join("\u0001") === key && covered.has(path[path.length - 1])));
+                list = list.filter((path) => !(path.length === prefix.length + 1 &&
+                    path.slice(0, -1).join("\u0001") === key &&
+                    covered.has(path[path.length - 1])));
                 list.push(prefix);
                 changed = true;
                 break;

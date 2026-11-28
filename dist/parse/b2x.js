@@ -1,5 +1,15 @@
 import { asArray, child, children, rootElement, textOf, attr, parseXml } from "./xml.js";
-const KNOWN_CLASS_CHILDREN = new Set(["businessName", "executionName", "extenderName", "attribute", "method", "constructor", "import", "tester", "extender"]);
+const KNOWN_CLASS_CHILDREN = new Set([
+    "businessName",
+    "executionName",
+    "extenderName",
+    "attribute",
+    "method",
+    "constructor",
+    "import",
+    "tester",
+    "extender",
+]);
 export function parseB2x(content, provenance) {
     const warnings = [];
     const classes = [];
@@ -8,7 +18,11 @@ export function parseB2x(content, provenance) {
         doc = parseXml(content);
     }
     catch (error) {
-        warnings.push({ path: provenance.path, severity: "error", message: `B2X is not well-formed XML: ${errorText(error)}` });
+        warnings.push({
+            path: provenance.path,
+            severity: "error",
+            message: `B2X is not well-formed XML: ${errorText(error)}`,
+        });
         return { classes, provenance, warnings };
     }
     const root = rootElement(doc);
@@ -19,7 +33,11 @@ export function parseB2x(content, provenance) {
     for (const node of children(root.node, "class")) {
         const businessName = textOf(child(node, "businessName")).trim();
         if (!businessName) {
-            warnings.push({ path: provenance.path, severity: "error", message: "B2X <class> without <businessName>" });
+            warnings.push({
+                path: provenance.path,
+                severity: "error",
+                message: "B2X <class> without <businessName>",
+            });
             continue;
         }
         const klass = {
@@ -44,7 +62,12 @@ export function parseB2x(content, provenance) {
                     if (text)
                         parts.push(`${label}: ${text}`);
                 }
-                klass.members.push({ name, kind: memberKind, paramTypes, implementation: parts.join("\n") });
+                klass.members.push({
+                    name,
+                    kind: memberKind,
+                    paramTypes,
+                    implementation: parts.join("\n"),
+                });
             }
         }
         const extender = textOf(child(node, "extenderName")).trim();
@@ -59,7 +82,11 @@ export function parseB2x(content, provenance) {
         for (const key of Object.keys(node)) {
             const local = key.startsWith("@") || key.startsWith("#") ? null : key.slice(key.lastIndexOf(":") + 1);
             if (local && !KNOWN_CLASS_CHILDREN.has(local)) {
-                warnings.push({ path: provenance.path, severity: "info", message: `B2X <${local}> in ${businessName} is not interpreted` });
+                warnings.push({
+                    path: provenance.path,
+                    severity: "info",
+                    message: `B2X <${local}> in ${businessName} is not interpreted`,
+                });
             }
         }
         classes.push(klass);

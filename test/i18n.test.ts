@@ -12,10 +12,16 @@ import { buildWorkspace } from "../src/indexer.ts";
 import { built, I18N } from "./helpers.ts";
 
 const { kb } = built(path.join(I18N, "Credit"));
-const uses = (name: string) => kb.model.uses.get(kb.findArtifact(name).artifact!.id)!.filter((use) => !use.target.startsWith("var:"));
+const uses = (name: string) =>
+  kb.model.uses
+    .get(kb.findArtifact(name).artifact!.id)!
+    .filter((use) => !use.target.startsWith("var:"));
 
 test("French workspace: all gates pass, no errors", () => {
-  assert.deepEqual(kb.warnings().filter((warning) => warning.severity === "error"), []);
+  assert.deepEqual(
+    kb.warnings().filter((warning) => warning.severity === "error"),
+    [],
+  );
   for (const gate of runGates(kb)) assert.ok(gate.pass, `${gate.id}: ${gate.detail}`);
   assert.equal(kb.model.locale, "fr_FR");
 });
@@ -26,10 +32,21 @@ test("si / alors / sinon sections and {this,PARTITIVE_ARTICLE} slots", () => {
   assert.match(rule.actions ?? "", /ajouter/);
   assert.match(rule.elseActions ?? "", /assigner/);
   const found = uses("duree trop longue");
-  for (const id of ["banque.Demande.dureeMois", "banque.Rapport.ajouterMotif(string)", "banque.Client.age", "banque.Demande.client"]) {
-    assert.ok(found.some((use) => use.target === id && use.resolved), `${id}: ${JSON.stringify(found.map((use) => use.target))}`);
+  for (const id of [
+    "banque.Demande.dureeMois",
+    "banque.Rapport.ajouterMotif(string)",
+    "banque.Client.age",
+    "banque.Demande.client",
+  ]) {
+    assert.ok(
+      found.some((use) => use.target === id && use.resolved),
+      `${id}: ${JSON.stringify(found.map((use) => use.target))}`,
+    );
   }
-  assert.ok(found.some((use) => use.target === "banque.Client.age" && use.writes), "assigner ... à is a write");
+  assert.ok(
+    found.some((use) => use.target === "banque.Client.age" && use.writes),
+    "assigner ... à is a write",
+  );
 });
 
 test("définitions, and a subject followed by a comma", () => {
@@ -54,7 +71,12 @@ test("a package folder named `output` is a package, and a subflow by UUID is fol
 });
 
 test("French validation: articles and keywords are understood, unknown words are not", () => {
-  const [ok, bad] = kb.validatePhrases({ phrases: ["la duree mois de la demande est plus grand que 300", "le salaire de la demande est plus grand que 3"] }).results;
+  const [ok, bad] = kb.validatePhrases({
+    phrases: [
+      "la duree mois de la demande est plus grand que 300",
+      "le salaire de la demande est plus grand que 3",
+    ],
+  }).results;
   assert.ok(ok.ok, JSON.stringify(ok));
   assert.equal(bad.ok, false);
   assert.deepEqual((bad as { unknownWords?: string[] }).unknownWords, ["salaire"]);
@@ -62,7 +84,21 @@ test("French validation: articles and keywords are understood, unknown words are
 
 test("ADS and DSI projects are reported as other products, not read as empty", () => {
   const ads = buildWorkspace(path.join(I18N, "other", "AdsProject")).kb;
-  assert.ok(ads.warnings().some((warning) => warning.severity === "error" && /Automation Decision Services/.test(warning.message)));
+  assert.ok(
+    ads
+      .warnings()
+      .some(
+        (warning) =>
+          warning.severity === "error" && /Automation Decision Services/.test(warning.message),
+      ),
+  );
   const agent = buildWorkspace(path.join(I18N, "other", "AgentProject")).kb;
-  assert.ok(agent.warnings().some((warning) => warning.severity === "error" && /Decision Server Insights/.test(warning.message)));
+  assert.ok(
+    agent
+      .warnings()
+      .some(
+        (warning) =>
+          warning.severity === "error" && /Decision Server Insights/.test(warning.message),
+      ),
+  );
 });

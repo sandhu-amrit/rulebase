@@ -48,7 +48,17 @@ export interface ParsedB2x {
   warnings: Warning[];
 }
 
-const KNOWN_CLASS_CHILDREN = new Set(["businessName", "executionName", "extenderName", "attribute", "method", "constructor", "import", "tester", "extender"]);
+const KNOWN_CLASS_CHILDREN = new Set([
+  "businessName",
+  "executionName",
+  "extenderName",
+  "attribute",
+  "method",
+  "constructor",
+  "import",
+  "tester",
+  "extender",
+]);
 
 export function parseB2x(content: string, provenance: Provenance): ParsedB2x {
   const warnings: Warning[] = [];
@@ -57,7 +67,11 @@ export function parseB2x(content: string, provenance: Provenance): ParsedB2x {
   try {
     doc = parseXml(content);
   } catch (error) {
-    warnings.push({ path: provenance.path, severity: "error", message: `B2X is not well-formed XML: ${errorText(error)}` });
+    warnings.push({
+      path: provenance.path,
+      severity: "error",
+      message: `B2X is not well-formed XML: ${errorText(error)}`,
+    });
     return { classes, provenance, warnings };
   }
   const root = rootElement(doc);
@@ -68,7 +82,11 @@ export function parseB2x(content: string, provenance: Provenance): ParsedB2x {
   for (const node of children(root.node, "class")) {
     const businessName = textOf(child(node, "businessName")).trim();
     if (!businessName) {
-      warnings.push({ path: provenance.path, severity: "error", message: "B2X <class> without <businessName>" });
+      warnings.push({
+        path: provenance.path,
+        severity: "error",
+        message: "B2X <class> without <businessName>",
+      });
       continue;
     }
     const klass: B2xClass = {
@@ -79,20 +97,28 @@ export function parseB2x(content: string, provenance: Provenance): ParsedB2x {
     for (const kind of ["attribute", "method", "constructor"] as const) {
       for (const memberNode of children(node, kind)) {
         const simple = businessName.split(".").pop() ?? businessName;
-        let name = textOf(child(memberNode, "name")).trim() || (kind === "constructor" ? simple : "");
+        let name =
+          textOf(child(memberNode, "name")).trim() || (kind === "constructor" ? simple : "");
         // `.b2xa` writes constructors as <method> named after the class (often fully qualified).
         let memberKind: B2xMember["kind"] = kind;
         if (kind === "method" && (name === businessName || name === simple)) {
           memberKind = "constructor";
           name = simple;
         }
-        const paramTypes = children(memberNode, "parameter").map((param) => attr(param, "type") ?? textOf(param).trim());
+        const paramTypes = children(memberNode, "parameter").map(
+          (param) => attr(param, "type") ?? textOf(param).trim(),
+        );
         const parts: string[] = [];
         for (const label of ["getter", "setter", "body"]) {
           const text = textOf(child(memberNode, label)).trim();
           if (text) parts.push(`${label}: ${text}`);
         }
-        klass.members.push({ name, kind: memberKind, paramTypes, implementation: parts.join("\n") });
+        klass.members.push({
+          name,
+          kind: memberKind,
+          paramTypes,
+          implementation: parts.join("\n"),
+        });
       }
     }
     const extender = textOf(child(node, "extenderName")).trim();
@@ -103,9 +129,14 @@ export function parseB2x(content: string, provenance: Provenance): ParsedB2x {
       .join("\n");
     if (extra) klass.extra = extra;
     for (const key of Object.keys(node as Record<string, unknown>)) {
-      const local = key.startsWith("@") || key.startsWith("#") ? null : key.slice(key.lastIndexOf(":") + 1);
+      const local =
+        key.startsWith("@") || key.startsWith("#") ? null : key.slice(key.lastIndexOf(":") + 1);
       if (local && !KNOWN_CLASS_CHILDREN.has(local)) {
-        warnings.push({ path: provenance.path, severity: "info", message: `B2X <${local}> in ${businessName} is not interpreted` });
+        warnings.push({
+          path: provenance.path,
+          severity: "info",
+          message: `B2X <${local}> in ${businessName} is not interpreted`,
+        });
       }
     }
     classes.push(klass);

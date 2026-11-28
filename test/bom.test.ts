@@ -30,9 +30,16 @@ public interface Scored
   );
   assert.deepEqual(bom.warnings, []);
   assert.equal(bom.properties.origin, "xom:/P/xom");
-  assert.deepEqual(bom.classes.map((klass) => klass.fqn), ["com.acme.loan.Party", "com.acme.loan.Borrower", "com.acme.loan.Scored"]);
+  assert.deepEqual(
+    bom.classes.map((klass) => klass.fqn),
+    ["com.acme.loan.Party", "com.acme.loan.Borrower", "com.acme.loan.Scored"],
+  );
   const borrower = bom.classes[1];
-  assert.deepEqual(borrower.superTypes, ["com.acme.loan.Party", "com.acme.Scored", "com.acme.Named"]);
+  assert.deepEqual(borrower.superTypes, [
+    "com.acme.loan.Party",
+    "com.acme.Scored",
+    "com.acme.Named",
+  ]);
   assert.equal(borrower.documentation, "A person");
   assert.deepEqual(bom.classes[0].modifiers, ["public", "abstract"]);
   assert.equal(bom.classes[2].kind, "interface");
@@ -78,7 +85,11 @@ public class Loan
   assert.equal(byName.messages.readonly, true);
   assert.equal(byName.grades.type, "java.util.List<a.b.Grade>");
   assert.equal(byName.scores.type, "int[]");
-  assert.equal(byName.domain.type, "string", "a member named 'domain' is a member, not a domain clause");
+  assert.equal(
+    byName.domain.type,
+    "string",
+    "a member named 'domain' is a member, not a domain clause",
+  );
   assert.equal(byName.Loan.kind, "constructor");
   assert.equal(byName.Loan.id, "a.b.Loan.Loan(int,double)");
   assert.equal(byName.max.static, true);
@@ -151,7 +162,10 @@ class Year
   );
   assert.deepEqual(bom.warnings, []);
   assert.equal(bom.properties["#loadGetterSetterAsProperties"], "true");
-  assert.deepEqual(bom.classes.map((klass) => klass.fqn), ["org.sample.Contributor", "org.sample.Contributor.Role", "org.sample.Year"]);
+  assert.deepEqual(
+    bom.classes.map((klass) => klass.fqn),
+    ["org.sample.Contributor", "org.sample.Contributor.Role", "org.sample.Year"],
+  );
   assert.deepEqual(bom.classes[1].domain, ["Author", "Approver"]);
   assert.equal(bom.classes[1].packageName, "org.sample");
   assert.equal(bom.classes[2].properties["#valueType"], "true");
