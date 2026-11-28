@@ -15,8 +15,8 @@ jobs:
         node: ["22.13", "24"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -33,7 +33,7 @@ jobs:
           node dist/cli.js check fixtures/miniloan --cache "$RUNNER_TEMP/m.sqlite"
           node dist/cli.js check fixtures/acme-workspace --cache "$RUNNER_TEMP/a.sqlite"
           node dist/cli.js report fixtures/acme-workspace -o "$RUNNER_TEMP/report.html" --cache "$RUNNER_TEMP/a.sqlite"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: matrix.os == 'windows-latest' && matrix.node == '24'
         with:
           name: fixture-report
@@ -42,8 +42,8 @@ jobs:
   hygiene:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: npm
@@ -56,8 +56,8 @@ jobs:
   bench:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: npm
